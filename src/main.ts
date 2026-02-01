@@ -1,16 +1,15 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
-import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { getLoggerConfig } from './common/logger.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const loggerConfig = getLoggerConfig(process.env.NODE_ENV || 'development');
+  const app = await NestFactory.create(AppModule, loggerConfig);
   const configService = app.get(ConfigService);
-  const logger = app.get(Logger);
-
-  // Use Pino logger
-  app.useLogger(logger);
+  const logger = new Logger('Bootstrap');
 
   // Security
   app.use(helmet());

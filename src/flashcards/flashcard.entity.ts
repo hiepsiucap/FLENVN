@@ -13,6 +13,13 @@ import { Book } from '../books/book.entity';
 import { Session } from '../sessions/session.entity';
 import { User } from '../users/user.entity';
 
+export enum FlashCardStatus {
+  NEW = 'new',
+  LEARNING = 'learning',
+  REVIEWING = 'reviewing',
+  MASTERED = 'mastered',
+}
+
 @Entity('flashcards')
 @Index(['user', 'word'], { unique: true })
 export class FlashCard {
@@ -57,8 +64,12 @@ export class FlashCard {
   @Column({ nullable: true })
   nextReviewDate: Date;
 
-  @Column({ default: 'new' })
-  status: string; // 'new', 'learning', 'reviewing', 'mastered'
+  @Column({
+    type: 'enum',
+    enum: FlashCardStatus,
+    default: FlashCardStatus.NEW,
+  })
+  status: FlashCardStatus;
 
   @CreateDateColumn()
   createdAt: Date;

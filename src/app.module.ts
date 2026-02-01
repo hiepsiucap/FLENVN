@@ -8,7 +8,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { getLoggerConfig } from './common/logger.config';
 import { validationSchema } from './config/validation';
 import { getDatabaseConfig } from './database/database.config';
 
@@ -30,9 +29,6 @@ import { getDatabaseConfig } from './database/database.config';
       inject: [ConfigService],
       useFactory: getDatabaseConfig,
     }),
-
-    // Logging
-    getLoggerConfig(process.env.NODE_ENV || 'development'),
 
     // Rate Limiting
     ThrottlerModule.forRoot([

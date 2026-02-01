@@ -10,16 +10,34 @@ import {
 import { FlashCard } from '../flashcards/flashcard.entity';
 import { User } from '../users/user.entity';
 
+export enum SessionType {
+  REVIEW = 'review',
+  LEARN = 'learn',
+  PRACTICE = 'practice',
+}
+
+export enum SessionResult {
+  CORRECT = 'correct',
+  INCORRECT = 'incorrect',
+  SKIPPED = 'skipped',
+}
+
 @Entity('sessions')
 export class Session {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  type: string; // 'review', 'learn', 'practice'
+  @Column({
+    type: 'enum',
+    enum: SessionType,
+  })
+  type: SessionType;
 
-  @Column()
-  result: string; // 'correct', 'incorrect', 'skipped'
+  @Column({
+    type: 'enum',
+    enum: SessionResult,
+  })
+  result: SessionResult;
 
   @Column({ nullable: true })
   responseTime: number; // in milliseconds
