@@ -5,6 +5,7 @@ export const validationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
   PORT: Joi.number().default(3000),
   CORS_ORIGIN: Joi.string().optional(),
+  CORS_ORIGINS: Joi.string().default('http://localhost:3000'),
   THROTTLE_TTL: Joi.number().default(60000),
   THROTTLE_LIMIT: Joi.number().default(10),
   MAX_FILE_SIZE: Joi.number().default(5242880), // 5MB
@@ -25,7 +26,7 @@ export const validationSchema = Joi.object({
     .valid('true', 'false')
     .default('true'),
 
-  // JWT Configuration{}
+  // JWT Configuration
   JWT_ACCESS_SECRET: Joi.string().min(24).required(),
   JWT_REFRESH_SECRET: Joi.string().min(24).required(),
   JWT_ACCESS_TTL: Joi.string().default('15m'),
