@@ -8,10 +8,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { validationSchema } from './config/validation';
-import { getDatabaseConfig } from './database/database.config';
 import configurationFiles from './config';
 import { AppConfigService } from './config/app-config.service';
+import { validationSchema } from './config/validation';
+import { getDatabaseConfig } from './database/database.config';
 
 @Module({
   imports: [

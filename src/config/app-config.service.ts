@@ -184,11 +184,6 @@ export class AppConfigService {
     return this.configService.get<number>('services.email.port', 587);
   }
 
-  // Utility methods
-  getOrThrow<T = any>(key: string): T {
-    return this.configService.getOrThrow<T>(key);
-  }
-
   // Validation methods
   validateRequiredSecrets(): void {
     const requiredSecrets = [

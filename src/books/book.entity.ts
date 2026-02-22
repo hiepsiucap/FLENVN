@@ -40,6 +40,6 @@ export class Book {
   updatedAt: Date;
 
   // Relationships
-  @OneToMany(() => FlashCard, flashcard => flashcard.book)
+  @OneToMany(() => FlashCard, (flashcard) => flashcard.book)
   flashcards: FlashCard[];
 }

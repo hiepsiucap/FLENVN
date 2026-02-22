@@ -1,12 +1,28 @@
 import {
-  ExceptionFilter,
-  Catch,
   ArgumentsHost,
+  Catch,
+  ExceptionFilter,
   HttpException,
   HttpStatus,
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+
+interface ErrorResponse {
+  statusCode: number;
+  timestamp: string;
+  path: string;
+  method: string;
+  message: string;
+  details?: unknown;
+}
+
+interface ExceptionResponseObject {
+  message?: string | string[];
+  error?: string;
+  statusCode?: number;
+  details?: unknown;
+}
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -19,38 +35,46 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     let status: number;
     let message: string;
-    let details: any;
+    let details: unknown;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      
-      if (typeof exceptionResponse === 'object') {
-        message = (exceptionResponse as any).message || exception.message;
-        details = (exceptionResponse as any).details;
+
+      if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+        const responseObj = exceptionResponse as ExceptionResponseObject;
+
+        // Handle message - could be string or array
+        if (Array.isArray(responseObj.message)) {
+          message = responseObj.message.join(', ');
+        } else {
+          message = responseObj.message || exception.message;
+        }
+
+        details = responseObj.details;
       } else {
-        message = exceptionResponse as string;
+        message = String(exceptionResponse);
       }
     } else {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       message = 'Internal server error';
-      
+
       // Log the full error for debugging
       this.logger.error('Unexpected error occurred', {
         error: exception,
-        stack: (exception as Error).stack,
+        stack: exception instanceof Error ? exception.stack : undefined,
         path: request.url,
         method: request.method,
       });
     }
 
-    const errorResponse = {
+    const errorResponse: ErrorResponse = {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
       message,
-      ...(details && { details }),
+      ...(details !== undefined && { details }),
     };
 
     response.status(status).json(errorResponse);

@@ -34,6 +34,7 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'error',
       '@typescript-eslint/no-floating-promises': 'warn',
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
+      'arrow-parens': ['error', 'always'],
     },
   },
 );
