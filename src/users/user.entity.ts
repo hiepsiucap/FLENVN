@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { FlashCard } from '../flashcards/flashcard.entity';
 import { Session } from '../sessions/session.entity';
+import { UserSubscription } from '../subscriptions/user-subscription.entity';
 
 @Entity('users')
 export class User {
@@ -50,6 +51,12 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ default: 0 })
+  booksCount: number; // Track current book count
+
+  @Column({ default: 0 })
+  totalWordsUsed: number; // Track total words used across books
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -62,4 +69,7 @@ export class User {
 
   @OneToMany(() => Session, session => session.user)
   sessions: Session[];
+
+  @OneToMany(() => UserSubscription, subscription => subscription.user)
+  subscriptions: UserSubscription[];
 }
