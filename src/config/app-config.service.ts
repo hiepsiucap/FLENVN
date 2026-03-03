@@ -131,13 +131,6 @@ export class AppConfigService {
     return this.configService.get<string>('services.aws.s3.bucket', '');
   }
 
-  get cloudinaryFolder(): string {
-    return this.configService.get<string>(
-      'services.cloudinary.folder',
-      'flennest',
-    );
-  }
-
   get openaiApiKey(): string {
     return this.configService.get<string>('services.openai.apiKey', '');
   }
@@ -155,18 +148,6 @@ export class AppConfigService {
 
   get openaiTemperature(): number {
     return this.configService.get<number>('services.openai.temperature', 0.7);
-  }
-
-  get redisHost(): string {
-    return this.configService.get<string>('services.redis.host', 'localhost');
-  }
-
-  get redisPort(): number {
-    return this.configService.get<number>('services.redis.port', 6379);
-  }
-
-  get redisTtl(): number {
-    return this.configService.get<number>('services.redis.ttl', 3600);
   }
 
   get emailFrom(): string {
@@ -210,16 +191,8 @@ export class AppConfigService {
     );
   }
 
-  hasCloudinaryConfig(): boolean {
-    return !!this.configService.get('services.cloudinary.url');
-  }
-
   hasOpenaiConfig(): boolean {
     return !!this.configService.get('services.openai.apiKey');
-  }
-
-  hasRedisConfig(): boolean {
-    return !!this.configService.get('services.redis.host');
   }
 
   hasEmailConfig(): boolean {

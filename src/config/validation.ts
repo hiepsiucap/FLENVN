@@ -38,13 +38,13 @@ export const validationSchema = Joi.object({
   SESSION_NAME: Joi.string().default('flennest.sid'),
   SESSION_MAX_AGE: Joi.number().default(86400000), // 24 hours
 
-  // OAuth Configuration
-  GOOGLE_CLIENT_ID: Joi.string().optional(),
-  GOOGLE_CLIENT_SECRET: Joi.string().optional(),
-  GOOGLE_CALLBACK_URL: Joi.string().uri().optional(),
-  GITHUB_CLIENT_ID: Joi.string().optional(),
-  GITHUB_CLIENT_SECRET: Joi.string().optional(),
-  GITHUB_CALLBACK_URL: Joi.string().uri().optional(),
+  // OAuth Configuration (tech debt)
+  // GOOGLE_CLIENT_ID: Joi.string().optional(),
+  // GOOGLE_CLIENT_SECRET: Joi.string().optional(),
+  // GOOGLE_CALLBACK_URL: Joi.string().uri().optional(),
+  // GITHUB_CLIENT_ID: Joi.string().optional(),
+  // GITHUB_CLIENT_SECRET: Joi.string().optional(),
+  // GITHUB_CALLBACK_URL: Joi.string().uri().optional(),
 
   // AWS Configuration
   AWS_REGION: Joi.string().default('us-east-1'),
@@ -54,27 +54,12 @@ export const validationSchema = Joi.object({
   AWS_S3_REGION: Joi.string().optional(),
   AWS_S3_SIGNED_URL_EXPIRES: Joi.number().default(3600),
   AWS_SES_REGION: Joi.string().optional(),
-  AWS_SES_FROM_EMAIL: Joi.string().email().optional(),
-
-  // Cloudinary Configuration
-  CLOUDINARY_URL: Joi.string().uri().optional(),
-  CLOUDINARY_CLOUD_NAME: Joi.string().optional(),
-  CLOUDINARY_API_KEY: Joi.string().optional(),
-  CLOUDINARY_API_SECRET: Joi.string().optional(),
-  CLOUDINARY_FOLDER: Joi.string().default('flennest'),
 
   // OpenAI Configuration
   OPENAI_API_KEY: Joi.string().optional(),
   OPENAI_MODEL: Joi.string().default('gpt-3.5-turbo'),
   OPENAI_MAX_TOKENS: Joi.number().default(1000),
   OPENAI_TEMPERATURE: Joi.number().min(0).max(2).default(0.7),
-
-  // Redis Configuration
-  REDIS_HOST: Joi.string().default('localhost'),
-  REDIS_PORT: Joi.number().default(6379),
-  REDIS_PASSWORD: Joi.string().optional(),
-  REDIS_DB: Joi.number().default(0),
-  REDIS_TTL: Joi.number().default(3600),
 
   // Email Configuration
   EMAIL_SERVICE: Joi.string().default('gmail'),

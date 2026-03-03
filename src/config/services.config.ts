@@ -16,17 +16,7 @@ export default registerAs('services', () => ({
     },
     ses: {
       region: process.env.AWS_SES_REGION || process.env.AWS_REGION,
-      fromEmail: process.env.AWS_SES_FROM_EMAIL,
     },
-  },
-
-  // Cloudinary Configuration
-  cloudinary: {
-    url: process.env.CLOUDINARY_URL,
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-    apiKey: process.env.CLOUDINARY_API_KEY,
-    apiSecret: process.env.CLOUDINARY_API_SECRET,
-    folder: process.env.CLOUDINARY_FOLDER || 'flennest',
   },
 
   // OpenAI Configuration
@@ -35,15 +25,6 @@ export default registerAs('services', () => ({
     model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
     maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '1000', 10),
     temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7'),
-  },
-
-  // Redis Configuration (if using for caching/sessions)
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379', 10),
-    password: process.env.REDIS_PASSWORD,
-    db: parseInt(process.env.REDIS_DB || '0', 10),
-    ttl: parseInt(process.env.REDIS_TTL || '3600', 10), // 1 hour
   },
 
   // Email Service Configuration
