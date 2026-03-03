@@ -8,6 +8,12 @@ import {
 } from 'typeorm';
 import { User } from '../users/user.entity';
 
+export enum TokenType {
+  REFRESH = 'refresh',
+  EMAIL_VERIFICATION = 'email-verification',
+  PASSWORD_RESET = 'password-reset',
+}
+
 @Entity('tokens')
 export class Token {
   @PrimaryGeneratedColumn('uuid')
@@ -16,8 +22,8 @@ export class Token {
   @Column()
   token: string;
 
-  @Column({ default: 'refresh' })
-  type: string; // 'refresh', 'email-verification', 'password-reset'
+  @Column({ type: 'enum', enum: TokenType, default: TokenType.REFRESH })
+  type: TokenType;
 
   @Column()
   expiresAt: Date;
