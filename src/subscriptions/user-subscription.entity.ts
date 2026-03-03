@@ -25,7 +25,7 @@ export class UserSubscription {
   startDate: Date;
 
   @Column({ type: 'date', nullable: true })
-  endDate: Date; // null if lifetime/active
+  endDate: Date | null; // null if lifetime/active
 
   @Column({ default: true })
   isActive: boolean;

@@ -16,6 +16,8 @@ import { getDatabaseConfig } from './database/database.config';
 import { UsersModule } from './users/users.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { BooksModule } from './books/books.module';
+import { FlashcardsModule } from './flashcards/flashcards.module';
+import { SessionsModule } from './sessions/sessions.module';
 
 @Module({
   imports: [
@@ -55,6 +57,8 @@ import { BooksModule } from './books/books.module';
     UsersModule,
     SubscriptionsModule,
     BooksModule,
+    FlashcardsModule,
+    SessionsModule,
   ],
   controllers: [AppController],
   providers: [

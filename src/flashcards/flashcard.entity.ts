@@ -61,8 +61,8 @@ export class FlashCard {
   @Column({ default: 0 })
   repetitions: number;
 
-  @Column({ nullable: true })
-  nextReviewDate: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  nextReviewDate: Date | null;
 
   @Column({
     type: 'enum',

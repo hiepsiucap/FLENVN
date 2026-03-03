@@ -70,13 +70,12 @@ export class SubscriptionsService {
       throw new NotFoundException('Free plan not found');
     }
 
-    const subscription = this.userSubscriptionRepository.create({
-      userId,
-      planId: freePlan.id,
-      startDate: new Date(),
-      endDate: null,
-      isActive: true,
-    });
+    const subscription = new UserSubscription();
+    subscription.userId = userId;
+    subscription.planId = freePlan.id;
+    subscription.startDate = new Date();
+    subscription.endDate = null;
+    subscription.isActive = true;
 
     return this.userSubscriptionRepository.save(subscription);
   }
@@ -116,13 +115,12 @@ export class SubscriptionsService {
     }
 
     // Create new subscription
-    const subscription = this.userSubscriptionRepository.create({
-      userId,
-      planId: newPlan.id,
-      startDate: new Date(),
-      endDate: null,
-      isActive: true,
-    });
+    const subscription = new UserSubscription();
+    subscription.userId = userId;
+    subscription.planId = newPlan.id;
+    subscription.startDate = new Date();
+    subscription.endDate = null;
+    subscription.isActive = true;
 
     return this.userSubscriptionRepository.save(subscription);
   }
