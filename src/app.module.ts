@@ -6,12 +6,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import configurationFiles from './config';
 import { AppConfigService } from './config/app-config.service';
 import { validationSchema } from './config/validation';
 import { getDatabaseConfig } from './database/database.config';
+import { UsersModule } from './users/users.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { BooksModule } from './books/books.module';
 
 @Module({
   imports: [
@@ -45,6 +49,12 @@ import { getDatabaseConfig } from './database/database.config';
         limit: 100, // 100 requests per ttl
       },
     ]),
+
+    // Feature Modules
+    AuthModule,
+    UsersModule,
+    SubscriptionsModule,
+    BooksModule,
   ],
   controllers: [AppController],
   providers: [
