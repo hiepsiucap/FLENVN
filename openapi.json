@@ -1,0 +1,1487 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refreshToken",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/verify-email": {
+      "get": {
+        "operationId": "AuthController_verifyEmail",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/profile": {
+      "get": {
+        "operationId": "AuthController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/plans": {
+      "post": {
+        "operationId": "SubscriptionsController_createPlan",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubscriptionPlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "get": {
+        "operationId": "SubscriptionsController_getAllPlans",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/plans/{id}": {
+      "get": {
+        "operationId": "SubscriptionsController_getPlanById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "put": {
+        "operationId": "SubscriptionsController_updatePlan",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "delete": {
+        "operationId": "SubscriptionsController_deletePlan",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/my-subscription": {
+      "get": {
+        "operationId": "SubscriptionsController_getUserSubscription",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/upgrade": {
+      "post": {
+        "operationId": "SubscriptionsController_upgradeSubscription",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpgradeSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/usage": {
+      "get": {
+        "operationId": "SubscriptionsController_getUsageStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/check-book-limit": {
+      "post": {
+        "operationId": "SubscriptionsController_canAddBook",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/check-words-limit": {
+      "post": {
+        "operationId": "SubscriptionsController_canAddWords",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/users/profile": {
+      "get": {
+        "operationId": "UsersController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "put": {
+        "operationId": "UsersController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/change-password": {
+      "post": {
+        "operationId": "UsersController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "UsersController_getAllUsers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "operationId": "UsersController_getUserById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_deleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/books": {
+      "post": {
+        "operationId": "BooksController_createBook",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Books"
+        ]
+      },
+      "get": {
+        "operationId": "BooksController_getBooks",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Books"
+        ]
+      }
+    },
+    "/api/v1/books/public": {
+      "get": {
+        "operationId": "BooksController_getPublicBooks",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Books"
+        ]
+      }
+    },
+    "/api/v1/books/{id}": {
+      "get": {
+        "operationId": "BooksController_getBookById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Books"
+        ]
+      },
+      "put": {
+        "operationId": "BooksController_updateBook",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBookDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Books"
+        ]
+      },
+      "delete": {
+        "operationId": "BooksController_deleteBook",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Books"
+        ]
+      }
+    },
+    "/api/v1/flashcards": {
+      "post": {
+        "operationId": "FlashcardsController_createFlashcard",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFlashcardDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Flashcards"
+        ]
+      },
+      "get": {
+        "operationId": "FlashcardsController_getFlashcards",
+        "parameters": [
+          {
+            "name": "bookId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Flashcards"
+        ]
+      }
+    },
+    "/api/v1/flashcards/review/due": {
+      "get": {
+        "operationId": "FlashcardsController_getCardsForReview",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Flashcards"
+        ]
+      }
+    },
+    "/api/v1/flashcards/stats": {
+      "get": {
+        "operationId": "FlashcardsController_getStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Flashcards"
+        ]
+      }
+    },
+    "/api/v1/flashcards/{id}": {
+      "get": {
+        "operationId": "FlashcardsController_getFlashcardById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Flashcards"
+        ]
+      },
+      "put": {
+        "operationId": "FlashcardsController_updateFlashcard",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFlashcardDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Flashcards"
+        ]
+      },
+      "delete": {
+        "operationId": "FlashcardsController_deleteFlashcard",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Flashcards"
+        ]
+      }
+    },
+    "/api/v1/flashcards/{id}/review": {
+      "post": {
+        "operationId": "FlashcardsController_reviewFlashcard",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Flashcards"
+        ]
+      }
+    },
+    "/api/v1/flashcards/{id}/mastered": {
+      "post": {
+        "operationId": "FlashcardsController_markAsMastered",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Flashcards"
+        ]
+      }
+    },
+    "/api/v1/sessions/flashcard/{flashcardId}": {
+      "post": {
+        "operationId": "SessionsController_createSession",
+        "parameters": [
+          {
+            "name": "flashcardId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions": {
+      "get": {
+        "operationId": "SessionsController_getSessionHistory",
+        "parameters": [
+          {
+            "name": "flashcardId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/stats": {
+      "get": {
+        "operationId": "SessionsController_getStudyStats",
+        "parameters": [
+          {
+            "name": "days",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/streak": {
+      "get": {
+        "operationId": "SessionsController_getStreakStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/{sessionId}": {
+      "delete": {
+        "operationId": "SessionsController_deleteSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Sessions"
+        ]
+      }
+    },
+    "/api/v1/translation/translate": {
+      "post": {
+        "operationId": "TranslateController_translate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslateTextDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Translation"
+        ]
+      }
+    },
+    "/api/v1/uploads/presign-image": {
+      "get": {
+        "operationId": "UploadsController_getImageUploadUrl",
+        "parameters": [
+          {
+            "name": "contentType",
+            "required": true,
+            "in": "query",
+            "description": "MIME type of the file to upload",
+            "schema": {
+              "example": "image/jpeg",
+              "type": "string"
+            }
+          },
+          {
+            "name": "fileName",
+            "required": false,
+            "in": "query",
+            "description": "Original file name, used to preserve extension",
+            "schema": {
+              "example": "avatar.jpg",
+              "type": "string"
+            }
+          },
+          {
+            "name": "folder",
+            "required": false,
+            "in": "query",
+            "description": "S3 folder prefix",
+            "schema": {
+              "default": "images",
+              "example": "images",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "jwt-auth": []
+          }
+        ],
+        "tags": [
+          "Uploads"
+        ]
+      },
+      "post": {
+        "operationId": "UploadsController_createImageUploadUrl",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUploadUrlDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "jwt-auth": []
+          }
+        ],
+        "tags": [
+          "Uploads"
+        ]
+      }
+    },
+    "/api/v1/words/suggest": {
+      "get": {
+        "operationId": "WordsController_suggest",
+        "parameters": [
+          {
+            "name": "word",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "apple",
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetLanguage",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "vi",
+              "example": "vi",
+              "type": "string"
+            }
+          },
+          {
+            "name": "imageLimit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10,
+              "default": 3,
+              "example": 3,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "jwt-auth": []
+          }
+        ],
+        "tags": [
+          "Words"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "FLENVN API",
+    "description": "API documentation for the FLENVN backend services",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "jwt-auth": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Enter JWT access token"
+      }
+    },
+    "schemas": {
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "example": "Secret123!"
+          },
+          "username": {
+            "type": "string",
+            "example": "bill"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "example": "Secret123!"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "CreateSubscriptionPlanDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Free"
+          },
+          "description": {
+            "type": "string",
+            "example": "Default free plan"
+          },
+          "price": {
+            "type": "number",
+            "example": 0
+          },
+          "maxBooks": {
+            "type": "number",
+            "example": 5
+          },
+          "maxWords": {
+            "type": "number",
+            "example": 50000
+          },
+          "maxFlashcards": {
+            "type": "number",
+            "example": 100
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "example": {
+              "exportEnabled": false
+            }
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "name",
+          "price",
+          "maxBooks",
+          "maxWords",
+          "maxFlashcards"
+        ]
+      },
+      "UpgradeSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "example": "f2e9b30d-2ac8-4b57-a0f6-3acda8e1f4f3"
+          }
+        },
+        "required": [
+          "planId"
+        ]
+      },
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 3,
+            "example": "new_username"
+          },
+          "email": {
+            "type": "string",
+            "example": "new_email@example.com"
+          }
+        }
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "oldPassword": {
+            "type": "string",
+            "minLength": 8,
+            "example": "oldSecret123"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "example": "newSecret123"
+          },
+          "confirmPassword": {
+            "type": "string",
+            "minLength": 8,
+            "example": "newSecret123"
+          }
+        },
+        "required": [
+          "oldPassword",
+          "newPassword",
+          "confirmPassword"
+        ]
+      },
+      "CreateBookDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255,
+            "example": "English Basics"
+          },
+          "description": {
+            "type": "string",
+            "example": "A beginner guide."
+          },
+          "author": {
+            "type": "string",
+            "example": "Bill H"
+          },
+          "content": {
+            "type": "string",
+            "example": "Book body content..."
+          },
+          "coverImage": {
+            "type": "string",
+            "example": "https://cdn.example.com/cover.jpg"
+          },
+          "isPublic": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "UpdateBookDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255,
+            "example": "English Basics"
+          },
+          "description": {
+            "type": "string",
+            "example": "Updated description"
+          },
+          "author": {
+            "type": "string",
+            "example": "Bill H"
+          },
+          "content": {
+            "type": "string",
+            "example": "Updated content"
+          },
+          "coverImage": {
+            "type": "string",
+            "example": "https://cdn.example.com/cover.jpg"
+          },
+          "isPublic": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "CreateFlashcardDto": {
+        "type": "object",
+        "properties": {
+          "word": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "resilient"
+          },
+          "partOfSpeech": {
+            "type": "string",
+            "enum": [
+              "noun",
+              "verb",
+              "adjective",
+              "adverb",
+              "pronoun",
+              "preposition",
+              "conjunction",
+              "interjection",
+              "determiner"
+            ],
+            "example": "noun"
+          },
+          "pronunciation": {
+            "type": "string",
+            "example": "/rɪˈzɪl.i.ənt/"
+          },
+          "definition": {
+            "type": "string",
+            "example": "Able to recover quickly from difficulties."
+          },
+          "translation": {
+            "type": "string",
+            "example": "linh hoat"
+          },
+          "audioUrl": {
+            "type": "string",
+            "example": "https://cdn.example.com/audio.mp3"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "https://cdn.example.com/image.png"
+          },
+          "example": {
+            "type": "string",
+            "example": "She remained resilient under pressure."
+          },
+          "exampleTranslation": {
+            "type": "string",
+            "example": "Co ay van kien cu duoi ap luc."
+          },
+          "bookId": {
+            "type": "string",
+            "example": "a9c40a35-7b10-4ec7-b86d-a8eeef1c3ad5"
+          }
+        },
+        "required": [
+          "word"
+        ]
+      },
+      "UpdateFlashcardDto": {
+        "type": "object",
+        "properties": {
+          "word": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "resilient"
+          },
+          "partOfSpeech": {
+            "type": "string",
+            "enum": [
+              "noun",
+              "verb",
+              "adjective",
+              "adverb",
+              "pronoun",
+              "preposition",
+              "conjunction",
+              "interjection",
+              "determiner"
+            ],
+            "example": "noun"
+          },
+          "pronunciation": {
+            "type": "string",
+            "example": "/rɪˈzɪl.i.ənt/"
+          },
+          "definition": {
+            "type": "string",
+            "example": "Able to recover quickly from difficulties."
+          },
+          "translation": {
+            "type": "string",
+            "example": "linh hoat"
+          },
+          "audioUrl": {
+            "type": "string",
+            "example": "https://cdn.example.com/audio.mp3"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "https://cdn.example.com/image.png"
+          },
+          "example": {
+            "type": "string",
+            "example": "She remained resilient under pressure."
+          },
+          "exampleTranslation": {
+            "type": "string",
+            "example": "Co ay van kien cu duoi ap luc."
+          }
+        }
+      },
+      "CreateSessionDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "review",
+              "learn",
+              "practice"
+            ]
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "correct",
+              "incorrect",
+              "skipped"
+            ]
+          },
+          "responseTime": {
+            "type": "number",
+            "example": 1200
+          },
+          "score": {
+            "type": "number",
+            "example": 10
+          },
+          "flashcardId": {
+            "type": "string",
+            "readOnly": true,
+            "description": "Set from route param"
+          }
+        },
+        "required": [
+          "type",
+          "result"
+        ]
+      },
+      "TranslateTextDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "example": "Hello world",
+            "description": "Text to translate"
+          },
+          "targetLanguage": {
+            "type": "string",
+            "example": "vi",
+            "description": "Target language code (ISO 639-1)"
+          },
+          "sourceLanguage": {
+            "type": "string",
+            "example": "en",
+            "description": "Source language code. Use auto-detect by omitting this field."
+          }
+        },
+        "required": [
+          "text",
+          "targetLanguage"
+        ]
+      },
+      "CreateUploadUrlDto": {
+        "type": "object",
+        "properties": {
+          "contentType": {
+            "type": "string",
+            "example": "image/jpeg",
+            "description": "MIME type of the file to upload"
+          },
+          "fileName": {
+            "type": "string",
+            "example": "avatar.jpg",
+            "description": "Original file name, used to preserve extension"
+          },
+          "folder": {
+            "type": "string",
+            "example": "images",
+            "description": "S3 folder prefix",
+            "default": "images"
+          }
+        },
+        "required": [
+          "contentType"
+        ]
+      }
+    }
+  }
+}
