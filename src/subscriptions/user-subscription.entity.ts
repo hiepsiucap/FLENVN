@@ -13,35 +13,38 @@ import { SubscriptionPlan } from './subscription-plan.entity';
 @Entity('user_subscriptions')
 export class UserSubscription {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column()
-  userId: string;
+  userId!: string;
 
   @Column()
-  planId: string;
+  planId!: string;
 
   @Column({ type: 'date' })
-  startDate: Date;
+  startDate!: Date;
 
   @Column({ type: 'date', nullable: true })
-  endDate: Date | null; // null if lifetime/active
+  endDate!: Date | null; // null if lifetime/active
 
   @Column({ default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Relationships
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user!: User;
 
-  @ManyToOne(() => SubscriptionPlan, subscription => subscription.userSubscriptions)
+  @ManyToOne(
+    () => SubscriptionPlan,
+    (subscription) => subscription.userSubscriptions,
+  )
   @JoinColumn({ name: 'planId' })
-  plan: SubscriptionPlan;
+  plan!: SubscriptionPlan;
 }

@@ -31,10 +31,7 @@ export class BooksController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.booksService.createBook(req.user.id, createBookDto),
-    };
+    return this.booksService.createBook(req.user.id, createBookDto);
   }
 
   @Get()
@@ -43,10 +40,7 @@ export class BooksController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.booksService.getBooks(req.user.id),
-    };
+    return this.booksService.getBooks(req.user.id);
   }
 
   @Get('public')
@@ -54,10 +48,7 @@ export class BooksController {
     @Query('limit') limit: number = 10,
     @Query('offset') offset: number = 0,
   ) {
-    return {
-      success: true,
-      data: await this.booksService.getPublicBooks(limit, offset),
-    };
+    return this.booksService.getPublicBooks(limit, offset);
   }
 
   @Get(':id')
@@ -69,10 +60,7 @@ export class BooksController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.booksService.getBookById(bookId, req.user.id),
-    };
+    return this.booksService.getBookById(bookId, req.user.id);
   }
 
   @Put(':id')
@@ -85,14 +73,7 @@ export class BooksController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.booksService.updateBook(
-        bookId,
-        req.user.id,
-        updateBookDto,
-      ),
-    };
+    return this.booksService.updateBook(bookId, req.user.id, updateBookDto);
   }
 
   @Delete(':id')
@@ -105,9 +86,6 @@ export class BooksController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.booksService.deleteBook(bookId, req.user.id),
-    };
+    return this.booksService.deleteBook(bookId, req.user.id);
   }
 }

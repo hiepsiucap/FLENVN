@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SessionsService } from './sessions.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { User } from '../users/user.entity';
 
 @Controller('sessions')
 @UseGuards(JwtAuthGuard)
@@ -25,7 +26,7 @@ export class SessionsController {
   async createSession(
     @Param('flashcardId') flashcardId: string,
     @Body() createSessionDto: CreateSessionDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: User,
   ) {
     const session = await this.sessionsService.createSession(
       user.id,
@@ -35,14 +36,13 @@ export class SessionsController {
 
     return {
       message: 'Session recorded successfully',
-      data: session,
-      timestamp: new Date().toISOString(),
+      session,
     };
   }
 
   @Get()
   async getSessionHistory(
-    @CurrentUser() user: any,
+    @CurrentUser() user: User,
     @Query('flashcardId') flashcardId?: string,
     @Query('days') days?: string,
   ) {
@@ -53,42 +53,32 @@ export class SessionsController {
     );
 
     return {
-      data: sessions,
+      sessions,
       count: sessions.length,
-      timestamp: new Date().toISOString(),
     };
   }
 
   @Get('stats')
-  async getStudyStats(
-    @CurrentUser() user: any,
-    @Query('days') days?: string,
-  ) {
+  async getStudyStats(@CurrentUser() user: User, @Query('days') days?: string) {
     const stats = await this.sessionsService.getStudyStats(
       user.id,
       days ? parseInt(days) : 7,
     );
 
-    return {
-      data: stats,
-      timestamp: new Date().toISOString(),
-    };
+    return stats;
   }
 
   @Get('streak')
-  async getStreakStats(@CurrentUser() user: any) {
+  async getStreakStats(@CurrentUser() user: User) {
     const stats = await this.sessionsService.getStreakStats(user.id);
 
-    return {
-      data: stats,
-      timestamp: new Date().toISOString(),
-    };
+    return stats;
   }
 
   @Delete(':sessionId')
   async deleteSession(
     @Param('sessionId') sessionId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: User,
   ) {
     return this.sessionsService.deleteSession(sessionId, user.id);
   }

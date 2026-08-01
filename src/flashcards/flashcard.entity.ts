@@ -12,6 +12,7 @@ import {
 import { Book } from '../books/book.entity';
 import { Session } from '../sessions/session.entity';
 import { User } from '../users/user.entity';
+import { PartOfSpeech } from './part-of-speech.enum';
 
 export enum FlashCardStatus {
   NEW = 'new',
@@ -21,77 +22,84 @@ export enum FlashCardStatus {
 }
 
 @Entity('flashcards')
-@Index(['user', 'word'], { unique: true })
+@Index(['userId', 'word'], { unique: true })
 export class FlashCard {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Index()
   @Column()
-  word: string;
+  word!: string;
 
-  @Column({ nullable: true })
-  pronunciation: string;
+  @Column({
+    type: 'enum',
+    enum: PartOfSpeech,
+    nullable: true,
+  })
+  partOfSpeech!: PartOfSpeech | null;
 
-  @Column('text', { nullable: true })
-  definition: string;
-
-  @Column('text', { nullable: true })
-  translation: string;
-
-  @Column({ nullable: true })
-  audioUrl: string;
-
-  @Column({ nullable: true })
-  imageUrl: string;
+  @Column({ type: 'varchar', nullable: true })
+  pronunciation!: string | null;
 
   @Column('text', { nullable: true })
-  example: string;
+  definition!: string | null;
 
   @Column('text', { nullable: true })
-  exampleTranslation: string;
+  translation!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  audioUrl!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  imageUrl!: string | null;
+
+  @Column('text', { nullable: true })
+  example!: string | null;
+
+  @Column('text', { nullable: true })
+  exampleTranslation!: string | null;
 
   // Spaced repetition fields
-  @Column({ default: 0 })
-  easeFactor: number;
+  @Column({ type: 'float', default: 2.5 })
+  easeFactor!: number;
 
   @Column({ default: 0 })
-  interval: number;
+  interval!: number;
 
   @Column({ default: 0 })
-  repetitions: number;
+  repetitions!: number;
 
   @Column({ type: 'timestamp', nullable: true })
-  nextReviewDate: Date | null;
+  nextReviewDate!: Date | null;
 
   @Column({
     type: 'enum',
     enum: FlashCardStatus,
     default: FlashCardStatus.NEW,
   })
-  status: FlashCardStatus;
+  status!: FlashCardStatus;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Relationships
-  @ManyToOne(() => User, user => user.flashcards, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.flashcards, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user!: User;
 
   @Column()
-  userId: string;
+  userId!: string;
 
-  @ManyToOne(() => Book, book => book.flashcards, { nullable: true })
+  @ManyToOne(() => Book, (book) => book.flashcards, { nullable: true })
   @JoinColumn({ name: 'bookId' })
-  book: Book;
+  book!: Book | null;
 
-  @Column({ nullable: true })
-  bookId: string;
+  @Column({ type: 'uuid', nullable: true })
+  bookId!: string | null;
 
-  @OneToMany(() => Session, session => session.flashcard)
-  sessions: Session[];
+  @OneToMany(() => Session, (session) => session.flashcard)
+  sessions!: Session[];
 }

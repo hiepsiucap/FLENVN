@@ -15,6 +15,7 @@ import { SubscriptionsService } from './subscriptions.service';
 import { CreateSubscriptionPlanDto } from './dto/create-subscription-plan.dto';
 import { UpgradeSubscriptionDto } from './dto/upgrade-subscription.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 import type { AuthenticatedRequest } from '../auth/interfaces/authenticated-request.interface';
 
 @Controller('subscriptions')
@@ -23,47 +24,35 @@ export class SubscriptionsController {
 
   // Plan Management (Admin endpoints)
   @Post('plans')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   async createPlan(@Body() createPlanDto: CreateSubscriptionPlanDto) {
-    return {
-      success: true,
-      data: await this.subscriptionsService.createPlan(createPlanDto),
-    };
+    return this.subscriptionsService.createPlan(createPlanDto);
   }
 
   @Get('plans')
   async getAllPlans() {
-    return {
-      success: true,
-      data: await this.subscriptionsService.getAllPlans(),
-    };
+    return this.subscriptionsService.getAllPlans();
   }
 
   @Get('plans/:id')
   async getPlanById(@Param('id') id: string) {
-    return {
-      success: true,
-      data: await this.subscriptionsService.getPlanById(id),
-    };
+    return this.subscriptionsService.getPlanById(id);
   }
 
   @Put('plans/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   async updatePlan(
     @Param('id') id: string,
     @Body() updatePlanDto: Partial<CreateSubscriptionPlanDto>,
   ) {
-    return {
-      success: true,
-      data: await this.subscriptionsService.updatePlan(id, updatePlanDto),
-    };
+    return this.subscriptionsService.updatePlan(id, updatePlanDto);
   }
 
   @Delete('plans/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   @HttpCode(HttpStatus.OK)
   async deletePlan(@Param('id') id: string) {
-    return {
-      success: true,
-      data: await this.subscriptionsService.deletePlan(id),
-    };
+    return this.subscriptionsService.deletePlan(id);
   }
 
   // User Subscription Management
@@ -73,10 +62,7 @@ export class SubscriptionsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.subscriptionsService.getUserSubscription(req.user.id),
-    };
+    return this.subscriptionsService.getUserSubscription(req.user.id);
   }
 
   @Post('upgrade')
@@ -89,13 +75,10 @@ export class SubscriptionsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.subscriptionsService.upgradeSubscription(
-        req.user.id,
-        upgradeDto,
-      ),
-    };
+    return this.subscriptionsService.upgradeSubscription(
+      req.user.id,
+      upgradeDto,
+    );
   }
 
   @Get('usage')
@@ -104,10 +87,7 @@ export class SubscriptionsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.subscriptionsService.getUsageStats(req.user.id),
-    };
+    return this.subscriptionsService.getUsageStats(req.user.id);
   }
 
   @Post('check-book-limit')
@@ -118,10 +98,7 @@ export class SubscriptionsController {
       throw new Error('User not authenticated');
     }
     const canAdd = await this.subscriptionsService.canAddBook(req.user.id);
-    return {
-      success: true,
-      data: { canAdd },
-    };
+    return { canAdd };
   }
 
   @Post('check-words-limit')
@@ -138,9 +115,6 @@ export class SubscriptionsController {
       req.user.id,
       wordsCount,
     );
-    return {
-      success: true,
-      data: { canAdd },
-    };
+    return { canAdd };
   }
 }

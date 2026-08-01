@@ -11,6 +11,20 @@ import { CreateFlashcardDto } from './dto/create-flashcard.dto';
 import { UpdateFlashcardDto } from './dto/update-flashcard.dto';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { BooksService } from '../books/books.service';
+import { FlashcardImageService } from './flashcard-image.service';
+import { FlashcardAudioService } from './flashcard-audio.service';
+
+interface FlashcardStatsRow {
+  new: string | number | null;
+  learning: string | number | null;
+  reviewing: string | number | null;
+  mastered: string | number | null;
+  dueForReview: string | number | null;
+}
+
+function isFlashcardStatsRow(value: unknown): value is FlashcardStatsRow {
+  return typeof value === 'object' && value !== null;
+}
 
 @Injectable()
 export class FlashcardsService {
@@ -19,6 +33,8 @@ export class FlashcardsService {
     private readonly flashcardRepository: Repository<FlashCard>,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly booksService: BooksService,
+    private readonly flashcardImageService: FlashcardImageService,
+    private readonly flashcardAudioService: FlashcardAudioService,
   ) {}
 
   async createFlashcard(
@@ -54,6 +70,19 @@ export class FlashcardsService {
       }
     }
 
+    if (!createFlashcardDto.imageUrl) {
+      createFlashcardDto.imageUrl =
+        await this.flashcardImageService.findImageUrl(createFlashcardDto.word);
+    }
+
+    if (!createFlashcardDto.audioUrl) {
+      createFlashcardDto.audioUrl =
+        await this.flashcardAudioService.createAudioUrl(
+          userId,
+          createFlashcardDto.word,
+        );
+    }
+
     // Create flashcard
     const flashcard = this.flashcardRepository.create({
       ...createFlashcardDto,
@@ -72,7 +101,7 @@ export class FlashcardsService {
     // Increment book's total cards if bookId provided
     if (createFlashcardDto.bookId) {
       await this.flashcardRepository.query(
-        `UPDATE books SET totalCards = totalCards + 1 WHERE id = $1`,
+        `UPDATE books SET "totalCards" = "totalCards" + 1 WHERE id = $1`,
         [createFlashcardDto.bookId],
       );
     }
@@ -97,10 +126,16 @@ export class FlashcardsService {
       query.andWhere('fc.status = :status', { status });
     }
 
-    return query.orderBy('fc.nextReviewDate', 'ASC').addOrderBy('fc.createdAt', 'DESC').getMany();
+    return query
+      .orderBy('fc.nextReviewDate', 'ASC')
+      .addOrderBy('fc.createdAt', 'DESC')
+      .getMany();
   }
 
-  async getFlashcardById(flashcardId: string, userId: string): Promise<FlashCard> {
+  async getFlashcardById(
+    flashcardId: string,
+    userId: string,
+  ): Promise<FlashCard> {
     const flashcard = await this.flashcardRepository.findOne({
       where: { id: flashcardId },
     });
@@ -110,9 +145,7 @@ export class FlashcardsService {
     }
 
     if (flashcard.userId !== userId) {
-      throw new ForbiddenException(
-        'You do not have access to this flashcard',
-      );
+      throw new ForbiddenException('You do not have access to this flashcard');
     }
 
     return flashcard;
@@ -124,6 +157,27 @@ export class FlashcardsService {
     updateFlashcardDto: UpdateFlashcardDto,
   ): Promise<FlashCard> {
     const flashcard = await this.getFlashcardById(flashcardId, userId);
+
+    if (
+      updateFlashcardDto.word &&
+      updateFlashcardDto.imageUrl === undefined &&
+      !flashcard.imageUrl
+    ) {
+      updateFlashcardDto.imageUrl =
+        await this.flashcardImageService.findImageUrl(updateFlashcardDto.word);
+    }
+
+    if (
+      updateFlashcardDto.word &&
+      updateFlashcardDto.audioUrl === undefined &&
+      !flashcard.audioUrl
+    ) {
+      updateFlashcardDto.audioUrl =
+        await this.flashcardAudioService.createAudioUrl(
+          userId,
+          updateFlashcardDto.word,
+        );
+    }
 
     // Update fields
     Object.assign(flashcard, updateFlashcardDto);
@@ -146,7 +200,7 @@ export class FlashcardsService {
     // Decrement book's total cards if bookId provided
     if (flashcard.bookId) {
       await this.flashcardRepository.query(
-        `UPDATE books SET totalCards = totalCards - 1 WHERE id = $1`,
+        `UPDATE books SET "totalCards" = "totalCards" - 1 WHERE id = $1`,
         [flashcard.bookId],
       );
     }
@@ -170,8 +224,7 @@ export class FlashcardsService {
     // SM-2 calculation
     let easeFactor = flashcard.easeFactor;
     easeFactor =
-      easeFactor +
-      (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+      easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
     easeFactor = Math.max(1.3, easeFactor); // Minimum ease factor
 
     let interval = 1;
@@ -208,7 +261,10 @@ export class FlashcardsService {
   }
 
   // Get cards due for review
-  async getCardsForReview(userId: string, limit: number = 20): Promise<FlashCard[]> {
+  async getCardsForReview(
+    userId: string,
+    limit: number = 20,
+  ): Promise<FlashCard[]> {
     const now = new Date();
     return this.flashcardRepository
       .createQueryBuilder('fc')
@@ -243,27 +299,40 @@ export class FlashcardsService {
   }> {
     const total = await this.flashcardRepository.countBy({ userId });
 
-    const [stats] = await this.flashcardRepository.query(
+    const rawRows: unknown = await this.flashcardRepository.query(
       `
       SELECT
         COUNT(*) FILTER (WHERE status = 'new') as new,
         COUNT(*) FILTER (WHERE status = 'learning') as learning,
         COUNT(*) FILTER (WHERE status = 'reviewing') as reviewing,
         COUNT(*) FILTER (WHERE status = 'mastered') as mastered,
-        COUNT(*) FILTER (WHERE (nextReviewDate IS NULL OR nextReviewDate <= NOW())) as dueForReview
+        COUNT(*) FILTER (WHERE ("nextReviewDate" IS NULL OR "nextReviewDate" <= NOW())) as "dueForReview"
       FROM flashcards
-      WHERE userId = $1
+      WHERE "userId" = $1
       `,
       [userId],
     );
 
+    const firstRow: unknown = Array.isArray(rawRows)
+      ? (rawRows as unknown[])[0]
+      : undefined;
+    const stats = isFlashcardStatsRow(firstRow)
+      ? firstRow
+      : {
+          new: 0,
+          learning: 0,
+          reviewing: 0,
+          mastered: 0,
+          dueForReview: 0,
+        };
+
     return {
       total,
-      new: parseInt(stats.new || 0),
-      learning: parseInt(stats.learning || 0),
-      reviewing: parseInt(stats.reviewing || 0),
-      mastered: parseInt(stats.mastered || 0),
-      dueForReview: parseInt(stats.dueForReview || 0),
+      new: Number.parseInt(String(stats.new || 0), 10),
+      learning: Number.parseInt(String(stats.learning || 0), 10),
+      reviewing: Number.parseInt(String(stats.reviewing || 0), 10),
+      mastered: Number.parseInt(String(stats.mastered || 0), 10),
+      dueForReview: Number.parseInt(String(stats.dueForReview || 0), 10),
     };
   }
 
@@ -272,6 +341,6 @@ export class FlashcardsService {
     return text
       .trim()
       .split(/\s+/)
-      .filter(word => word.length > 0).length;
+      .filter((word) => word.length > 0).length;
   }
 }

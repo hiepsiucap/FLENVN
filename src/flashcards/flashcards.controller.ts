@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -12,12 +13,12 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
-import { FlashcardsService } from './flashcards.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../auth/interfaces/authenticated-request.interface';
 import { CreateFlashcardDto } from './dto/create-flashcard.dto';
 import { UpdateFlashcardDto } from './dto/update-flashcard.dto';
 import { FlashCardStatus } from './flashcard.entity';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import type { AuthenticatedRequest } from '../auth/interfaces/authenticated-request.interface';
+import { FlashcardsService } from './flashcards.service';
 
 @Controller('flashcards')
 export class FlashcardsController {
@@ -32,13 +33,10 @@ export class FlashcardsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.flashcardsService.createFlashcard(
-        req.user.id,
-        createFlashcardDto,
-      ),
-    };
+    return this.flashcardsService.createFlashcard(
+      req.user.id,
+      createFlashcardDto,
+    );
   }
 
   @Get()
@@ -46,19 +44,28 @@ export class FlashcardsController {
   async getFlashcards(
     @Request() req: AuthenticatedRequest,
     @Query('bookId') bookId?: string,
-    @Query('status') status?: FlashCardStatus,
+    @Query('status') status?: string,
   ) {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.flashcardsService.getFlashcards(
-        req.user.id,
-        bookId,
-        status,
-      ),
-    };
+
+    let statusFilter: FlashCardStatus | undefined;
+    if (status && status !== 'all') {
+      const allowedStatuses = Object.values(FlashCardStatus);
+      if (!allowedStatuses.includes(status as FlashCardStatus)) {
+        throw new BadRequestException(
+          `Invalid status. Allowed values: all, ${allowedStatuses.join(', ')}`,
+        );
+      }
+      statusFilter = status as FlashCardStatus;
+    }
+
+    return this.flashcardsService.getFlashcards(
+      req.user.id,
+      bookId,
+      statusFilter,
+    );
   }
 
   @Get('review/due')
@@ -70,10 +77,7 @@ export class FlashcardsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.flashcardsService.getCardsForReview(req.user.id, limit),
-    };
+    return this.flashcardsService.getCardsForReview(req.user.id, limit);
   }
 
   @Get('stats')
@@ -82,10 +86,7 @@ export class FlashcardsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.flashcardsService.getStats(req.user.id),
-    };
+    return this.flashcardsService.getStats(req.user.id);
   }
 
   @Get(':id')
@@ -97,13 +98,7 @@ export class FlashcardsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.flashcardsService.getFlashcardById(
-        flashcardId,
-        req.user.id,
-      ),
-    };
+    return this.flashcardsService.getFlashcardById(flashcardId, req.user.id);
   }
 
   @Put(':id')
@@ -116,14 +111,11 @@ export class FlashcardsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.flashcardsService.updateFlashcard(
-        flashcardId,
-        req.user.id,
-        updateFlashcardDto,
-      ),
-    };
+    return this.flashcardsService.updateFlashcard(
+      flashcardId,
+      req.user.id,
+      updateFlashcardDto,
+    );
   }
 
   @Delete(':id')
@@ -136,13 +128,7 @@ export class FlashcardsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.flashcardsService.deleteFlashcard(
-        flashcardId,
-        req.user.id,
-      ),
-    };
+    return this.flashcardsService.deleteFlashcard(flashcardId, req.user.id);
   }
 
   @Post(':id/review')
@@ -156,14 +142,11 @@ export class FlashcardsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.flashcardsService.reviewFlashcard(
-        flashcardId,
-        req.user.id,
-        quality,
-      ),
-    };
+    return this.flashcardsService.reviewFlashcard(
+      flashcardId,
+      req.user.id,
+      quality,
+    );
   }
 
   @Post(':id/mastered')
@@ -176,12 +159,6 @@ export class FlashcardsController {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return {
-      success: true,
-      data: await this.flashcardsService.markAsMastered(
-        flashcardId,
-        req.user.id,
-      ),
-    };
+    return this.flashcardsService.markAsMastered(flashcardId, req.user.id);
   }
 }

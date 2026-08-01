@@ -25,44 +25,44 @@ export enum SessionResult {
 @Entity('sessions')
 export class Session {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({
     type: 'enum',
     enum: SessionType,
   })
-  type: SessionType;
+  type!: SessionType;
 
   @Column({
     type: 'enum',
     enum: SessionResult,
   })
-  result: SessionResult;
+  result!: SessionResult;
 
-  @Column({ nullable: true })
-  responseTime: number; // in milliseconds
+  @Column({ type: 'integer', nullable: true })
+  responseTime!: number | null; // in milliseconds
 
   @Column({ default: 0 })
-  score: number;
+  score!: number;
 
   @Index()
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   // Relationships
-  @ManyToOne(() => User, user => user.sessions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.sessions, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user!: User;
 
   @Column()
-  userId: string;
+  userId!: string;
 
-  @ManyToOne(() => FlashCard, flashcard => flashcard.sessions, {
+  @ManyToOne(() => FlashCard, (flashcard) => flashcard.sessions, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'flashcardId' })
-  flashcard: FlashCard;
+  flashcard!: FlashCard;
 
   @Column()
-  flashcardId: string;
+  flashcardId!: string;
 }

@@ -5,6 +5,8 @@ import { FlashcardsService } from './flashcards.service';
 import { FlashcardsController } from './flashcards.controller';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { BooksModule } from '../books/books.module';
+import { FlashcardImageService } from './flashcard-image.service';
+import { FlashcardAudioService } from './flashcard-audio.service';
 
 @Module({
   imports: [
@@ -13,7 +15,7 @@ import { BooksModule } from '../books/books.module';
     BooksModule,
   ],
   controllers: [FlashcardsController],
-  providers: [FlashcardsService],
-  exports: [FlashcardsService],
+  providers: [FlashcardsService, FlashcardImageService, FlashcardAudioService],
+  exports: [FlashcardsService, FlashcardImageService, FlashcardAudioService],
 })
 export class FlashcardsModule {}

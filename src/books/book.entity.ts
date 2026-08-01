@@ -14,49 +14,57 @@ import { User } from '../users/user.entity';
 
 @Entity('books')
 export class Book {
+  static readonly DEFAULT_COVER_IMAGE_URL =
+    'https://flenvn.s3.ap-southeast-1.amazonaws.com/images/book.png';
+
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column()
-  userId: string;
+  userId!: string;
 
   @Column()
-  title: string;
+  title!: string;
 
   @Column({ type: 'text', nullable: true })
-  description: string;
+  description!: string | null;
 
-  @Column({ nullable: true })
-  author: string;
+  @Column({ type: 'varchar', nullable: true })
+  author!: string | null;
 
-  @Column({ nullable: true })
-  coverImage: string;
+  @Column({
+    type: 'varchar',
+    nullable: true,
+    default: Book.DEFAULT_COVER_IMAGE_URL,
+  })
+  coverImage!: string | null;
 
   @Column({ type: 'text', nullable: true })
-  content: string; // Main book content/text
+  content!: string | null; // Main book content/text
 
   @Column({ default: 0 })
-  wordCount: number; // Total words in the book
+  wordCount!: number; // Total words in the book
 
   @Column({ default: 0 })
-  totalCards: number; // Total flashcards created from this book
+  totalCards!: number; // Total flashcards created from this book
 
   @Column({ default: true })
-  isPublic: boolean;
+  isPublic!: boolean;
 
   @Index()
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Relationships
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user!: User;
 
-  @OneToMany(() => FlashCard, flashcard => flashcard.book, { onDelete: 'CASCADE' })
-  flashcards: FlashCard[];
+  @OneToMany(() => FlashCard, (flashcard) => flashcard.book, {
+    onDelete: 'CASCADE',
+  })
+  flashcards!: FlashCard[];
 }
-

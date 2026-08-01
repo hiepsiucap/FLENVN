@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SubscriptionPlan } from './subscription-plan.entity';
@@ -62,12 +58,24 @@ export class SubscriptionsService {
 
   // User Subscription Management
   async assignFreePlan(userId: string): Promise<UserSubscription> {
-    const freePlan = await this.planRepository.findOne({
+    let freePlan = await this.planRepository.findOne({
       where: { name: 'Free' },
     });
 
     if (!freePlan) {
-      throw new NotFoundException('Free plan not found');
+      // Bootstrap a default free tier for fresh environments.
+      freePlan = await this.planRepository.save(
+        this.planRepository.create({
+          name: 'Free',
+          description: 'Default free plan',
+          price: 0,
+          maxBooks: 5,
+          maxWords: 50000,
+          maxFlashcards: 100,
+          features: {},
+          isActive: true,
+        }),
+      );
     }
 
     const subscription = new UserSubscription();

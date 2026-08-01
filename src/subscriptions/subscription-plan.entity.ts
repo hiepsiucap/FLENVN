@@ -11,39 +11,39 @@ import { UserSubscription } from './user-subscription.entity';
 @Entity('subscription_plans')
 export class SubscriptionPlan {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ unique: true })
-  name: string; // Free, Basic, Premium, Pro
+  name!: string; // Free, Basic, Premium, Pro
 
   @Column({ type: 'text', nullable: true })
-  description: string;
+  description!: string | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  price: number; // Monthly price
+  price!: number; // Monthly price
 
   @Column({ default: 5 })
-  maxBooks: number;
+  maxBooks!: number;
 
   @Column({ default: 50000 })
-  maxWords: number; // Total words across all books
+  maxWords!: number; // Total words across all books
 
   @Column({ default: 100 })
-  maxFlashcards: number;
+  maxFlashcards!: number;
 
   @Column({ type: 'jsonb', default: {} })
-  features: Record<string, boolean>; // e.g., { emailSupport: true, apiAccess: false }
+  features!: Record<string, boolean>; // e.g., { emailSupport: true, apiAccess: false }
 
   @Column({ default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Relationships
-  @OneToMany(() => UserSubscription, subscription => subscription.plan)
-  userSubscriptions: UserSubscription[];
+  @OneToMany(() => UserSubscription, (subscription) => subscription.plan)
+  userSubscriptions!: UserSubscription[];
 }

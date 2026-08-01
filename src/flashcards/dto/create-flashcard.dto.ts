@@ -1,39 +1,63 @@
-import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PartOfSpeech } from '../part-of-speech.enum';
 
 export class CreateFlashcardDto {
+  @ApiProperty({ minLength: 1, maxLength: 100, example: 'resilient' })
   @IsString()
   @MinLength(1)
   @MaxLength(100)
-  word: string;
+  word!: string;
 
+  @ApiPropertyOptional({ enum: PartOfSpeech, example: PartOfSpeech.NOUN })
+  @IsOptional()
+  @IsEnum(PartOfSpeech)
+  partOfSpeech?: PartOfSpeech;
+
+  @ApiPropertyOptional({ example: '/rɪˈzɪl.i.ənt/' })
   @IsOptional()
   @IsString()
   pronunciation?: string;
 
+  @ApiPropertyOptional({
+    example: 'Able to recover quickly from difficulties.',
+  })
   @IsOptional()
   @IsString()
   definition?: string;
 
+  @ApiPropertyOptional({ example: 'linh hoat' })
   @IsOptional()
   @IsString()
   translation?: string;
 
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/audio.mp3' })
   @IsOptional()
   @IsString()
   audioUrl?: string;
 
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/image.png' })
   @IsOptional()
   @IsString()
   imageUrl?: string;
 
+  @ApiPropertyOptional({ example: 'She remained resilient under pressure.' })
   @IsOptional()
   @IsString()
   example?: string;
 
+  @ApiPropertyOptional({ example: 'Co ay van kien cu duoi ap luc.' })
   @IsOptional()
   @IsString()
   exampleTranslation?: string;
 
+  @ApiPropertyOptional({ example: 'a9c40a35-7b10-4ec7-b86d-a8eeef1c3ad5' })
   @IsOptional()
   @IsString()
   bookId?: string;

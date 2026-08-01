@@ -2,7 +2,6 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
@@ -89,19 +88,20 @@ export class SessionsService {
 
     const totalSessions = sessions.length;
     const correctAnswers = sessions.filter(
-      s => s.result === SessionResult.CORRECT,
+      (s) => s.result === SessionResult.CORRECT,
     ).length;
     const incorrectAnswers = sessions.filter(
-      s => s.result === SessionResult.INCORRECT,
+      (s) => s.result === SessionResult.INCORRECT,
     ).length;
     const skipped = sessions.filter(
-      s => s.result === SessionResult.SKIPPED,
+      (s) => s.result === SessionResult.SKIPPED,
     ).length;
 
-    const accuracy = totalSessions > 0 ? (correctAnswers / totalSessions) * 100 : 0;
+    const accuracy =
+      totalSessions > 0 ? (correctAnswers / totalSessions) * 100 : 0;
     const responseTimes = sessions
-      .filter(s => s.responseTime)
-      .map(s => s.responseTime);
+      .map((s) => s.responseTime)
+      .filter((responseTime): responseTime is number => responseTime !== null);
     const averageResponseTime =
       responseTimes.length > 0
         ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
@@ -114,7 +114,7 @@ export class SessionsService {
       [SessionType.PRACTICE]: 0,
     };
 
-    sessions.forEach(s => {
+    sessions.forEach((s) => {
       sessionsByType[s.type]++;
     });
 
@@ -124,7 +124,7 @@ export class SessionsService {
       { sessions: number; correct: number; incorrect: number }
     >();
 
-    sessions.forEach(session => {
+    sessions.forEach((session) => {
       const dateKey = session.createdAt.toISOString().split('T')[0];
       const stats = dailyStatsMap.get(dateKey);
       if (!stats) {
@@ -206,7 +206,8 @@ export class SessionsService {
 
     // Check if user studied today or yesterday
     const daysDiff = Math.floor(
-      (todayOnly.getTime() - lastStudyDateOnly.getTime()) / (1000 * 60 * 60 * 24),
+      (todayOnly.getTime() - lastStudyDateOnly.getTime()) /
+        (1000 * 60 * 60 * 24),
     );
 
     if (daysDiff > 1) {
@@ -219,12 +220,12 @@ export class SessionsService {
 
     // Calculate streak
     const sessionsByDate = new Map<string, boolean>();
-    sessions.forEach(session => {
+    sessions.forEach((session) => {
       const dateKey = session.createdAt.toISOString().split('T')[0];
       sessionsByDate.set(dateKey, true);
     });
 
-    let checkDate = new Date(todayOnly);
+    const checkDate = new Date(todayOnly);
     currentStreak = 0;
 
     while (sessionsByDate.has(checkDate.toISOString().split('T')[0])) {
@@ -239,7 +240,10 @@ export class SessionsService {
     };
   }
 
-  async deleteSession(sessionId: string, userId: string): Promise<{ message: string }> {
+  async deleteSession(
+    sessionId: string,
+    userId: string,
+  ): Promise<{ message: string }> {
     const session = await this.sessionRepository.findOne({
       where: { id: sessionId },
     });
@@ -260,7 +264,7 @@ export class SessionsService {
     if (sessions.length === 0) return 0;
 
     const sessionsByDate = new Map<string, boolean>();
-    sessions.forEach(session => {
+    sessions.forEach((session) => {
       const dateKey = session.createdAt.toISOString().split('T')[0];
       sessionsByDate.set(dateKey, true);
     });

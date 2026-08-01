@@ -1,15 +1,15 @@
 import {
   BadRequestException,
-  Injectable,
   ForbiddenException,
+  Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { Book } from './book.entity';
 import { CreateBookDto } from './dto/create-book.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
-import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 @Injectable()
 export class BooksService {
@@ -19,7 +19,10 @@ export class BooksService {
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
-  async createBook(userId: string, createBookDto: CreateBookDto): Promise<Book> {
+  async createBook(
+    userId: string,
+    createBookDto: CreateBookDto,
+  ): Promise<Book> {
     // Check subscription limits
     const canAddBook = await this.subscriptionsService.canAddBook(userId);
     if (!canAddBook) {
@@ -45,6 +48,7 @@ export class BooksService {
       ...createBookDto,
       userId,
       wordCount,
+      coverImage: createBookDto.coverImage || Book.DEFAULT_COVER_IMAGE_URL,
     });
 
     const savedBook = await this.bookRepository.save(book);
@@ -75,9 +79,7 @@ export class BooksService {
 
     // Check ownership unless book is public
     if (book.userId !== userId && !book.isPublic) {
-      throw new ForbiddenException(
-        'You do not have access to this book',
-      );
+      throw new ForbiddenException('You do not have access to this book');
     }
 
     return book;
@@ -141,7 +143,10 @@ export class BooksService {
     return this.bookRepository.save(book);
   }
 
-  async deleteBook(bookId: string, userId: string): Promise<{ message: string }> {
+  async deleteBook(
+    bookId: string,
+    userId: string,
+  ): Promise<{ message: string }> {
     const book = await this.bookRepository.findOne({
       where: { id: bookId },
     });
@@ -156,13 +161,20 @@ export class BooksService {
     }
 
     // Reduce subscription usage when deleting
-    await this.subscriptionsService.updateUserUsage(userId, -1, -book.wordCount);
+    await this.subscriptionsService.updateUserUsage(
+      userId,
+      -1,
+      -book.wordCount,
+    );
 
     await this.bookRepository.remove(book);
     return { message: 'Book deleted successfully' };
   }
 
-  async getPublicBooks(limit: number = 10, offset: number = 0): Promise<Book[]> {
+  async getPublicBooks(
+    limit: number = 10,
+    offset: number = 0,
+  ): Promise<Book[]> {
     return this.bookRepository.find({
       where: { isPublic: true },
       relations: ['user'],
@@ -178,6 +190,6 @@ export class BooksService {
     return text
       .trim()
       .split(/\s+/)
-      .filter(word => word.length > 0).length;
+      .filter((word) => word.length > 0).length;
   }
 }
