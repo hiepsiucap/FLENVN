@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { MoreThan, Repository } from 'typeorm';
 import { Token, TokenType } from './token.entity';
 
@@ -14,52 +14,65 @@ export class TokenService {
     return randomBytes(32).toString('hex');
   }
 
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
   async createRefreshToken(userId: string): Promise<Token> {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+    const rawToken = this.generateToken();
 
     const refreshToken = this.tokenRepository.create({
-      token: this.generateToken(),
+      token: this.hashToken(rawToken),
       type: TokenType.REFRESH,
       userId,
       expiresAt,
     });
 
-    return this.tokenRepository.save(refreshToken);
+    const savedToken = await this.tokenRepository.save(refreshToken);
+    savedToken.token = rawToken;
+    return savedToken;
   }
 
   async createEmailVerificationToken(userId: string): Promise<Token> {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours
+    const rawToken = this.generateToken();
 
     const emailToken = this.tokenRepository.create({
-      token: this.generateToken(),
+      token: this.hashToken(rawToken),
       type: TokenType.EMAIL_VERIFICATION,
       userId,
       expiresAt,
     });
 
-    return this.tokenRepository.save(emailToken);
+    const savedToken = await this.tokenRepository.save(emailToken);
+    savedToken.token = rawToken;
+    return savedToken;
   }
 
   async createPasswordResetToken(userId: string): Promise<Token> {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour
+    const rawToken = this.generateToken();
 
     const resetToken = this.tokenRepository.create({
-      token: this.generateToken(),
+      token: this.hashToken(rawToken),
       type: TokenType.PASSWORD_RESET,
       userId,
       expiresAt,
     });
 
-    return this.tokenRepository.save(resetToken);
+    const savedToken = await this.tokenRepository.save(resetToken);
+    savedToken.token = rawToken;
+    return savedToken;
   }
 
   async findValidToken(token: string, type: TokenType): Promise<Token | null> {
     return this.tokenRepository.findOne({
       where: {
-        token,
+        token: this.hashToken(token),
         type,
         isRevoked: false,
         expiresAt: MoreThan(new Date()),

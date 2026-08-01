@@ -9,10 +9,12 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { User } from '../users/user.entity';
 import type { AuthenticatedRequest } from './interfaces/authenticated-request.interface';
 
 @Controller('auth')
@@ -20,17 +22,20 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
   @Post('refresh')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async refreshToken(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshToken(refreshToken);
@@ -50,6 +55,7 @@ export class AuthController {
   }
 
   @Get('verify-email')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async verifyEmail(@Query('token') token: string) {
     return this.authService.verifyEmail(token);
   }
@@ -60,6 +66,17 @@ export class AuthController {
     if (!req.user) {
       throw new Error('User not authenticated');
     }
-    return { user: req.user };
+    return { user: this.sanitizeUser(req.user) };
+  }
+
+  private sanitizeUser(user: User) {
+    const {
+      password,
+      emailVerificationToken,
+      passwordResetToken,
+      passwordResetExpires,
+      ...sanitizedUser
+    } = user;
+    return sanitizedUser;
   }
 }

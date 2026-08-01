@@ -8,6 +8,14 @@ export type SanitizedUser = Omit<
   | 'passwordResetExpires'
 >;
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  username: string | null;
+  avatar: string;
+  isAdmin: boolean;
+}
+
 export interface JwtPayload {
   sub: string; // user ID
   iat?: number; // issued at
@@ -20,11 +28,11 @@ export interface AuthTokens {
 }
 
 export interface LoginResponse {
-  user: SanitizedUser;
+  user: AuthUser;
   accessToken: string;
   refreshToken: string;
 }
 
 export interface RegisterResponse extends LoginResponse {
-  emailVerificationToken: string;
+  emailVerificationRequired: boolean;
 }

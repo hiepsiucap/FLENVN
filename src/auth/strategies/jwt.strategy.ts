@@ -12,9 +12,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly configService: ConfigService,
     private readonly authService: AuthService,
   ) {
-    const jwtSecret = configService.get<string>('JWT_SECRET');
+    const jwtSecret = configService.get<string>('JWT_ACCESS_SECRET');
     if (!jwtSecret) {
-      throw new Error('JWT_SECRET is not configured');
+      throw new Error('JWT_ACCESS_SECRET is not configured');
     }
 
     super({

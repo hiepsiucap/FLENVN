@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import {
   AuthTokens,
+  AuthUser,
   JwtPayload,
   LoginResponse,
   RegisterResponse,
@@ -53,6 +55,7 @@ export class AuthService {
       email,
       password: hashedPassword,
       username,
+      avatar: User.DEFAULT_AVATAR_URL,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -60,10 +63,7 @@ export class AuthService {
     // Assign free plan on registration
     await this.subscriptionsService.assignFreePlan(savedUser.id);
 
-    // Create email verification token
-    const emailToken = await this.tokenService.createEmailVerificationToken(
-      savedUser.id,
-    );
+    await this.tokenService.createEmailVerificationToken(savedUser.id);
 
     // Generate tokens
     const { accessToken, refreshToken } = await this.generateTokens(
@@ -74,7 +74,7 @@ export class AuthService {
       user: this.sanitizeUser(savedUser),
       accessToken,
       refreshToken: refreshToken.token,
-      emailVerificationToken: emailToken.token,
+      emailVerificationRequired: true,
     };
   }
 
@@ -101,6 +101,10 @@ export class AuthService {
       throw new UnauthorizedException('Account is disabled');
     }
 
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException('Please verify your email before logging in');
+    }
+
     // Update last active
     await this.userRepository.update(user.id, {
       lastActive: new Date(),
@@ -110,7 +114,7 @@ export class AuthService {
     const { accessToken, refreshToken } = await this.generateTokens(user.id);
 
     return {
-      user: this.sanitizeUser(user),
+      user: this.toAuthUser(user),
       accessToken,
       refreshToken: refreshToken.token,
     };
@@ -199,6 +203,16 @@ export class AuthService {
       ...sanitizedUser
     } = user;
     return sanitizedUser;
+  }
+
+  private toAuthUser(user: User): AuthUser {
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      avatar: user.avatar,
+      isAdmin: user.isAdmin,
+    };
   }
 
   async validateUser(userId: string): Promise<User | null> {

@@ -17,28 +17,28 @@ export enum TokenType {
 @Entity('tokens')
 export class Token {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column()
-  token: string;
+  token!: string;
 
   @Column({ type: 'enum', enum: TokenType, default: TokenType.REFRESH })
-  type: TokenType;
+  type!: TokenType;
 
   @Column()
-  expiresAt: Date;
+  expiresAt!: Date;
 
   @Column({ default: false })
-  isRevoked: boolean;
+  isRevoked!: boolean;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   // Relationships
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user!: User;
 
   @Column()
-  userId: string;
+  userId!: string;
 }

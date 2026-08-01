@@ -10,6 +10,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { Token } from './token.entity';
 import { TokenService } from './token.service';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { AdminGuard } from './guards/admin.guard';
 
 @Module({
   imports: [
@@ -19,16 +20,16 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
+        secret: configService.get<string>('JWT_ACCESS_SECRET'),
         signOptions: {
-          expiresIn: configService.get('JWT_EXPIRES_IN', '15m'),
+          expiresIn: configService.get('JWT_ACCESS_TTL', '15m'),
         },
       }),
     }),
     SubscriptionsModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, TokenService, JwtStrategy],
+  providers: [AuthService, TokenService, JwtStrategy, AdminGuard],
   exports: [AuthService, JwtStrategy, PassportModule],
 })
 export class AuthModule {}

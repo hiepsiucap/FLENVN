@@ -12,64 +12,75 @@ import { UserSubscription } from '../subscriptions/user-subscription.entity';
 
 @Entity('users')
 export class User {
+  static readonly DEFAULT_AVATAR_URL =
+    'https://flenvn.s3.ap-southeast-1.amazonaws.com/images/profile.jpg';
+
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ unique: true })
-  email: string;
+  email!: string;
 
   @Column()
-  password: string;
+  password!: string;
 
-  @Column({ nullable: true })
-  username: string;
+  @Column({ type: 'varchar', nullable: true })
+  username!: string | null;
+
+  @Column({
+    default: User.DEFAULT_AVATAR_URL,
+  })
+  avatar!: string;
 
   @Column({ default: false })
-  isEmailVerified: boolean;
+  isEmailVerified!: boolean;
 
-  @Column({ nullable: true })
-  emailVerificationToken: string;
+  @Column({ type: 'varchar', nullable: true })
+  emailVerificationToken!: string | null;
 
-  @Column({ nullable: true })
-  passwordResetToken: string;
+  @Column({ type: 'varchar', nullable: true })
+  passwordResetToken!: string | null;
 
-  @Column({ nullable: true })
-  passwordResetExpires: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  passwordResetExpires!: Date | null;
 
   @Column({ default: 1 })
-  level: number;
+  level!: number;
 
   @Column({ default: 0 })
-  exp: number;
+  exp!: number;
 
   @Column({ default: 0 })
-  streak: number;
+  streak!: number;
 
-  @Column({ nullable: true })
-  lastActive: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  lastActive!: Date | null;
 
   @Column({ default: true })
-  isActive: boolean;
+  isActive!: boolean;
+
+  @Column({ default: false })
+  isAdmin!: boolean;
 
   @Column({ default: 0 })
-  booksCount: number; // Track current book count
+  booksCount!: number; // Track current book count
 
   @Column({ default: 0 })
-  totalWordsUsed: number; // Track total words used across books
+  totalWordsUsed!: number; // Track total words used across books
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Relationships
-  @OneToMany(() => FlashCard, flashcard => flashcard.user)
-  flashcards: FlashCard[];
+  @OneToMany(() => FlashCard, (flashcard) => flashcard.user)
+  flashcards!: FlashCard[];
 
-  @OneToMany(() => Session, session => session.user)
-  sessions: Session[];
+  @OneToMany(() => Session, (session) => session.user)
+  sessions!: Session[];
 
-  @OneToMany(() => UserSubscription, subscription => subscription.user)
-  subscriptions: UserSubscription[];
+  @OneToMany(() => UserSubscription, (subscription) => subscription.user)
+  subscriptions!: UserSubscription[];
 }
