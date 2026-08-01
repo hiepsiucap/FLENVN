@@ -3,22 +3,27 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 export const getDatabaseConfig = (
   configService: ConfigService,
-): TypeOrmModuleOptions => ({
-  type: 'postgres',
-  host: configService.get<string>('DB_HOST'),
-  port: configService.get<number>('DB_PORT'),
-  username: configService.get<string>('DB_USER'),
-  password: configService.get<string>('DB_PASS'),
-  database: configService.get<string>('DB_NAME'),
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  synchronize: configService.get<string>('NODE_ENV') === 'development',
-  logging: configService.get<string>('NODE_ENV') === 'development',
-  ssl:
-    configService.get<string>('NODE_ENV') === 'production'
+): TypeOrmModuleOptions => {
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
+  const useSsl = configService.get<string>('DB_SSL') === 'true';
+
+  return {
+    type: 'postgres',
+    host: configService.get<string>('DB_HOST'),
+    port: configService.get<number>('DB_PORT'),
+    username: configService.get<string>('DB_USER'),
+    password: configService.get<string>('DB_PASS'),
+    database: configService.get<string>('DB_NAME'),
+    entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+    synchronize: !isProduction,
+    logging: !isProduction,
+    ssl: useSsl
       ? {
-          rejectUnauthorized: false,
+          rejectUnauthorized:
+            configService.get<string>('DB_SSL_REJECT_UNAUTHORIZED') !== 'false',
         }
       : false,
-  migrations: [__dirname + '/migrations/*{.ts,.js}'],
-  migrationsRun: configService.get<string>('NODE_ENV') === 'production',
-});
+    migrations: [__dirname + '/migrations/*{.ts,.js}'],
+    migrationsRun: isProduction,
+  };
+};

@@ -32,6 +32,10 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-call': 'error',
       '@typescript-eslint/no-unsafe-return': 'error',
       '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { ignoreRestSiblings: true },
+      ],
       '@typescript-eslint/no-floating-promises': 'warn',
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
       'arrow-parens': ['error', 'always'],

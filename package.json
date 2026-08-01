@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "openapi:generate": "npm run build && node scripts/generate-openapi.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -20,6 +21,10 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@aws-sdk/client-polly": "^3.1101.0",
+    "@aws-sdk/client-s3": "^3.1029.0",
+    "@aws-sdk/client-translate": "^3.1029.0",
+    "@aws-sdk/s3-request-presigner": "^3.1029.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",

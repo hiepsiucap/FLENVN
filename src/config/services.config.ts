@@ -14,6 +14,11 @@ export default registerAs('services', () => ({
         10,
       ),
     },
+    polly: {
+      region: process.env.AWS_POLLY_REGION || process.env.AWS_REGION,
+      voiceId: process.env.AWS_POLLY_VOICE_ID || 'Joanna',
+      engine: process.env.AWS_POLLY_ENGINE || 'standard',
+    },
     ses: {
       region: process.env.AWS_SES_REGION || process.env.AWS_REGION,
     },
@@ -25,6 +30,14 @@ export default registerAs('services', () => ({
     model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
     maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '1000', 10),
     temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7'),
+  },
+
+  // Image Search Configuration
+  pexels: {
+    apiKey: process.env.PEXELS_API_KEY,
+  },
+  unsplash: {
+    accessKey: process.env.UNSPLASH_ACCESS_KEY,
   },
 
   // Email Service Configuration

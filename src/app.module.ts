@@ -1,7 +1,7 @@
 import { Module, ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AppController } from './app.controller';
@@ -18,6 +18,9 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { BooksModule } from './books/books.module';
 import { FlashcardsModule } from './flashcards/flashcards.module';
 import { SessionsModule } from './sessions/sessions.module';
+import { TranslateModule } from './translate/translate.module';
+import { UploadsModule } from './uploads/uploads.module';
+import { WordsModule } from './words/words.module';
 
 @Module({
   imports: [
@@ -31,11 +34,7 @@ import { SessionsModule } from './sessions/sessions.module';
         abortEarly: true,
       },
       expandVariables: true,
-      envFilePath: [
-        `.env.${process.env.NODE_ENV || 'development'}`,
-        '.env.local',
-        '.env',
-      ],
+      envFilePath: '.env',
     }),
 
     // Database
@@ -59,6 +58,9 @@ import { SessionsModule } from './sessions/sessions.module';
     BooksModule,
     FlashcardsModule,
     SessionsModule,
+    TranslateModule,
+    UploadsModule,
+    WordsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -72,6 +74,10 @@ import { SessionsModule } from './sessions/sessions.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseInterceptor,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
     {
       provide: APP_PIPE,

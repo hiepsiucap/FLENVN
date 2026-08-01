@@ -14,6 +14,15 @@ export interface ApiResponse<T> {
   timestamp: string;
 }
 
+function isApiResponse(value: unknown): value is Partial<ApiResponse<unknown>> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'success' in value &&
+    'data' in value
+  );
+}
+
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<
   T,
@@ -24,11 +33,22 @@ export class ResponseInterceptor<T> implements NestInterceptor<
     next: CallHandler,
   ): Observable<ApiResponse<T>> {
     return next.handle().pipe(
-      map((data: T) => ({
-        success: true,
-        data,
-        timestamp: new Date().toISOString(),
-      })),
+      map((data: T) => {
+        const timestamp = new Date().toISOString();
+
+        if (isApiResponse(data)) {
+          return {
+            ...data,
+            timestamp: data.timestamp ?? timestamp,
+          } as ApiResponse<T>;
+        }
+
+        return {
+          success: true,
+          data,
+          timestamp,
+        };
+      }),
     );
   }
 }

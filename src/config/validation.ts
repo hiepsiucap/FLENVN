@@ -53,13 +53,22 @@ export const validationSchema = Joi.object({
   AWS_S3_BUCKET: Joi.string().optional(),
   AWS_S3_REGION: Joi.string().optional(),
   AWS_S3_SIGNED_URL_EXPIRES: Joi.number().default(3600),
+  AWS_POLLY_REGION: Joi.string().optional(),
+  AWS_POLLY_VOICE_ID: Joi.string().default('Joanna'),
+  AWS_POLLY_ENGINE: Joi.string()
+    .valid('standard', 'neural', 'long-form', 'generative')
+    .default('standard'),
   AWS_SES_REGION: Joi.string().optional(),
 
   // OpenAI Configuration
-  OPENAI_API_KEY: Joi.string().optional(),
+  OPENAI_API_KEY: Joi.string().allow('').optional(),
   OPENAI_MODEL: Joi.string().default('gpt-3.5-turbo'),
   OPENAI_MAX_TOKENS: Joi.number().default(1000),
   OPENAI_TEMPERATURE: Joi.number().min(0).max(2).default(0.7),
+
+  // Image Search Configuration
+  PEXELS_API_KEY: Joi.string().allow('').optional(),
+  UNSPLASH_ACCESS_KEY: Joi.string().allow('').optional(),
 
   // Email Configuration
   EMAIL_SERVICE: Joi.string().default('gmail'),
