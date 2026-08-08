@@ -39,7 +39,9 @@ export class SessionsService {
         ...createSessionDto,
         userId,
         flashcardId,
-        score: createSessionDto.score || 0,
+        score:
+          createSessionDto.score ??
+          this.calculateDefaultSessionScore(createSessionDto.result),
       }),
     );
     await this.usersService.recordProgress(userId, savedSession.score);
@@ -94,7 +96,8 @@ export class SessionsService {
       (game) => game.result === SessionResult.SKIPPED,
     ).length;
     const score = flattenedGames.reduce(
-      (total, game) => total + (game.score || 0),
+      (total, game) =>
+        total + (game.score ?? this.calculateDefaultSessionScore(game.result)),
       0,
     );
     const accuracy =
@@ -124,7 +127,7 @@ export class SessionsService {
         gameType: game.gameType,
         result: game.result,
         responseTime: game.responseTime ?? null,
-        score: game.score || 0,
+        score: game.score ?? this.calculateDefaultSessionScore(game.result),
       }),
     );
 
@@ -372,6 +375,10 @@ export class SessionsService {
     };
     dailyStatsMap.set(dateKey, stats);
     return stats;
+  }
+
+  private calculateDefaultSessionScore(result: SessionResult): number {
+    return result === SessionResult.CORRECT ? 10 : 0;
   }
 
   private calculateLongestStreak(studyDates: Date[]): number {

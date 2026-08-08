@@ -181,7 +181,7 @@ export class UsersService {
     );
 
     if (daysSinceLastActive === 0) {
-      return currentStreak;
+      return Math.max(currentStreak, 1);
     }
 
     if (daysSinceLastActive === 1) {

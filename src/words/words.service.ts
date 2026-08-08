@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { FlashcardAudioService } from '../flashcards/flashcard-audio.service';
 import {
   FlashcardImageService,
@@ -8,6 +9,10 @@ import { TranslateService } from '../translate/translate.service';
 import { AutocompleteWordDto } from './dto/autocomplete-word.dto';
 import { CorrectTextDto } from './dto/correct-text.dto';
 import { SuggestWordDto } from './dto/suggest-word.dto';
+import {
+  SuggestTopicVocabularyDto,
+  TopicVocabularyLevel,
+} from './dto/suggest-topic-vocabulary.dto';
 import { WordsExampleService } from './words-example.service';
 
 interface DictionaryResponseItem {
@@ -29,6 +34,7 @@ interface DictionaryResponseItem {
 interface DatamuseSuggestion {
   word?: string;
   score?: number;
+  tags?: string[];
 }
 
 interface LanguageToolMatch {
@@ -47,6 +53,33 @@ interface LanguageToolMatch {
 
 interface LanguageToolResponse {
   matches?: LanguageToolMatch[];
+}
+
+interface OpenAiTopicVocabularyItem {
+  word?: string;
+  partOfSpeech?: string;
+  definition?: string;
+  translation?: string;
+  example?: string;
+  exampleTranslation?: string;
+  difficulty?: TopicVocabularyLevel;
+}
+
+interface OpenAiTopicVocabularyResponse {
+  suggestions?: OpenAiTopicVocabularyItem[];
+}
+
+interface OpenAiResponse {
+  status?: string;
+  incomplete_details?: {
+    reason?: string;
+  };
+  output_text?: string;
+  output?: Array<{
+    content?: Array<{
+      text?: string;
+    }>;
+  }>;
 }
 
 export interface DefinitionSuggestion {
@@ -110,11 +143,30 @@ export interface TextCorrectionResponse {
   source: 'languagetool';
 }
 
+export interface TopicVocabularySuggestion {
+  word: string;
+  partOfSpeech?: string;
+  definition?: string;
+  translation?: string;
+  example?: string;
+  exampleTranslation?: string;
+  difficulty?: TopicVocabularyLevel;
+}
+
+export interface TopicVocabularySuggestionResponse {
+  topic: string;
+  level: TopicVocabularyLevel;
+  targetLanguage: string;
+  suggestions: TopicVocabularySuggestion[];
+  source: 'openai' | 'datamuse';
+}
+
 @Injectable()
 export class WordsService {
   private readonly logger = new Logger(WordsService.name);
 
   constructor(
+    private readonly configService: ConfigService,
     private readonly flashcardAudioService: FlashcardAudioService,
     private readonly flashcardImageService: FlashcardImageService,
     private readonly translateService: TranslateService,
@@ -240,6 +292,49 @@ export class WordsService {
     }
   }
 
+  async suggestTopicVocabulary(
+    dto: SuggestTopicVocabularyDto,
+  ): Promise<TopicVocabularySuggestionResponse> {
+    const topic = dto.topic.trim();
+    if (!topic) {
+      throw new BadRequestException('Topic must not be empty');
+    }
+
+    const level = dto.level || TopicVocabularyLevel.BEGINNER;
+    const limit = dto.limit || 20;
+    const targetLanguage = dto.targetLanguage || 'vi';
+
+    const openAiSuggestions = await this.generateTopicVocabularyWithOpenAi(
+      topic,
+      level,
+      limit,
+      targetLanguage,
+    );
+
+    if (openAiSuggestions.length > 0) {
+      return {
+        topic,
+        level,
+        targetLanguage,
+        suggestions: openAiSuggestions,
+        source: 'openai',
+      };
+    }
+
+    return {
+      topic,
+      level,
+      targetLanguage,
+      suggestions: await this.generateTopicVocabularyWithDatamuse(
+        topic,
+        level,
+        limit,
+        targetLanguage,
+      ),
+      source: 'datamuse',
+    };
+  }
+
   async suggestWord(
     userId: string,
     dto: SuggestWordDto,
@@ -335,6 +430,232 @@ export class WordsService {
       suggestions: [],
       source: 'languagetool',
     };
+  }
+
+  private async generateTopicVocabularyWithOpenAi(
+    topic: string,
+    level: TopicVocabularyLevel,
+    limit: number,
+    targetLanguage: string,
+  ): Promise<TopicVocabularySuggestion[]> {
+    const apiKey = this.configService.get<string>('services.openai.apiKey');
+    if (!apiKey) return [];
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(
+          this.buildTopicVocabularyRequestBody(
+            topic,
+            level,
+            limit,
+            targetLanguage,
+          ),
+        ),
+      });
+
+      if (!response.ok) {
+        this.logger.warn(
+          `OpenAI topic vocabulary generation failed: ${response.status}`,
+        );
+        return [];
+      }
+
+      const data = (await response.json()) as OpenAiResponse;
+      if (data.status === 'incomplete') {
+        this.logger.warn(
+          `OpenAI topic vocabulary generation incomplete: ${
+            data.incomplete_details?.reason || 'unknown reason'
+          }`,
+        );
+        return [];
+      }
+
+      const text = this.extractOpenAiOutputText(data);
+      if (!text) return [];
+
+      const parsed = JSON.parse(text) as OpenAiTopicVocabularyResponse;
+
+      return this.normalizeTopicVocabularySuggestions(
+        parsed.suggestions || [],
+        level,
+        limit,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `OpenAI topic vocabulary generation failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+      return [];
+    }
+  }
+
+  private buildTopicVocabularyRequestBody(
+    topic: string,
+    level: TopicVocabularyLevel,
+    limit: number,
+    targetLanguage: string,
+  ) {
+    const maxOutputTokens = this.configService.get<number>(
+      'services.openai.maxTokens',
+      1000,
+    );
+
+    return {
+      model: this.configService.get<string>(
+        'services.openai.model',
+        'gpt-5-nano',
+      ),
+      store: false,
+      max_output_tokens: Math.max(maxOutputTokens, 3000),
+      reasoning: {
+        effort: 'minimal',
+      },
+      instructions:
+        'You create practical vocabulary lists for English learners. Return only valid JSON.',
+      input: JSON.stringify({
+        task: 'Generate topic-based English vocabulary suggestions for flashcard creation.',
+        topic,
+        level,
+        limit,
+        targetLanguage,
+        requirements: [
+          `Return exactly ${limit} useful vocabulary items when possible.`,
+          'Use common, practical words and short phrases for the topic.',
+          'Avoid duplicates and overly obscure words.',
+          'Definitions must be concise English learner definitions.',
+          'Examples must be natural and under 16 words.',
+          `Translations and example translations must use target language code: ${targetLanguage}.`,
+          'Use partOfSpeech values such as noun, verb, adjective, adverb, phrase, or expression.',
+        ],
+        responseShape: {
+          suggestions: [
+            {
+              word: 'reservation',
+              partOfSpeech: 'noun',
+              definition:
+                'An arrangement to keep something for later use.',
+              translation: 'target-language translation',
+              example: 'I made a reservation for two people.',
+              exampleTranslation: 'target-language example translation',
+              difficulty: level,
+            },
+          ],
+        },
+      }),
+      text: {
+        format: {
+          type: 'json_object',
+        },
+      },
+    };
+  }
+
+  private async generateTopicVocabularyWithDatamuse(
+    topic: string,
+    level: TopicVocabularyLevel,
+    limit: number,
+    targetLanguage: string,
+  ): Promise<TopicVocabularySuggestion[]> {
+    try {
+      const url = new URL('https://api.datamuse.com/words');
+      url.searchParams.set('ml', topic);
+      url.searchParams.set('topics', topic);
+      url.searchParams.set('max', String(limit));
+      url.searchParams.set('md', 'p');
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        this.logger.warn(
+          `Datamuse topic vocabulary generation failed: ${response.status}`,
+        );
+        return [];
+      }
+
+      const data = (await response.json()) as unknown;
+      const suggestions = Array.isArray(data)
+        ? (data as DatamuseSuggestion[])
+            .map((item) => item.word)
+            .filter((word): word is string => !!word)
+            .map((word) => word.trim())
+            .filter((word) => word.length > 0)
+            .slice(0, limit)
+        : [];
+
+      return Promise.all(
+        suggestions.map(async (word) => ({
+          word,
+          translation: await this.translateSafely(word, targetLanguage),
+          difficulty: level,
+        })),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Datamuse topic vocabulary generation failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+      return [];
+    }
+  }
+
+  private normalizeTopicVocabularySuggestions(
+    suggestions: OpenAiTopicVocabularyItem[],
+    defaultLevel: TopicVocabularyLevel,
+    limit: number,
+  ): TopicVocabularySuggestion[] {
+    const seen = new Set<string>();
+    const normalized: TopicVocabularySuggestion[] = [];
+
+    for (const suggestion of suggestions) {
+      const word = suggestion.word?.trim();
+      if (!word) continue;
+
+      const key = word.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      normalized.push({
+        word,
+        partOfSpeech: suggestion.partOfSpeech?.trim() || undefined,
+        definition: suggestion.definition?.trim() || undefined,
+        translation: suggestion.translation?.trim() || undefined,
+        example: suggestion.example?.trim() || undefined,
+        exampleTranslation:
+          suggestion.exampleTranslation?.trim() || undefined,
+        difficulty: this.normalizeTopicVocabularyLevel(
+          suggestion.difficulty,
+          defaultLevel,
+        ),
+      });
+
+      if (normalized.length >= limit) break;
+    }
+
+    return normalized;
+  }
+
+  private normalizeTopicVocabularyLevel(
+    value: TopicVocabularyLevel | undefined,
+    fallback: TopicVocabularyLevel,
+  ): TopicVocabularyLevel {
+    return value && Object.values(TopicVocabularyLevel).includes(value)
+      ? value
+      : fallback;
+  }
+
+  private extractOpenAiOutputText(response: OpenAiResponse): string | undefined {
+    if (response.output_text) return response.output_text;
+
+    return response.output
+      ?.flatMap((item) => item.content || [])
+      .map((content) => content.text)
+      .find((text): text is string => !!text);
   }
 
   private applyCorrections(

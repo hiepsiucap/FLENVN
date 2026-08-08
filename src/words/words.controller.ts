@@ -6,8 +6,10 @@ import type { User } from '../users/user.entity';
 import { AutocompleteWordDto } from './dto/autocomplete-word.dto';
 import { CorrectTextDto } from './dto/correct-text.dto';
 import { SuggestWordDto } from './dto/suggest-word.dto';
+import { SuggestTopicVocabularyDto } from './dto/suggest-topic-vocabulary.dto';
 import {
   TextCorrectionResponse,
+  TopicVocabularySuggestionResponse,
   WordAutocompleteResponse,
   WordSuggestionResponse,
   WordsService,
@@ -30,6 +32,13 @@ export class WordsController {
   @Post('correct')
   correct(@Body() dto: CorrectTextDto): Promise<TextCorrectionResponse> {
     return this.wordsService.correctText(dto);
+  }
+
+  @Post('suggest-topic')
+  suggestTopicVocabulary(
+    @Body() dto: SuggestTopicVocabularyDto,
+  ): Promise<TopicVocabularySuggestionResponse> {
+    return this.wordsService.suggestTopicVocabulary(dto);
   }
 
   @Get('suggest')
