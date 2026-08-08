@@ -517,21 +517,37 @@ export class WordsService {
         effort: 'minimal',
       },
       instructions:
-        'You create practical vocabulary lists for English learners. Return only valid JSON.',
+        'You create broad, practical vocabulary sets for English learners. Return only valid JSON.',
       input: JSON.stringify({
-        task: 'Generate topic-based English vocabulary suggestions for flashcard creation.',
+        task: 'Generate a broad topic-based English vocabulary set for flashcard creation. Return json only.',
         topic,
         level,
         limit,
         targetLanguage,
+        coverageGoal:
+          'Cover the topic from multiple useful angles instead of listing many similar words.',
         requirements: [
           `Return exactly ${limit} useful vocabulary items when possible.`,
-          'Use common, practical words and short phrases for the topic.',
-          'Avoid duplicates and overly obscure words.',
+          'Include a balanced mix of nouns, verbs, adjectives, common phrases, and expressions.',
+          'Spread the list across subtopics: people, places, objects, actions, problems, requests, feelings, and real-life situations where relevant.',
+          'Avoid narrow synonym clusters. Do not include more than 2 words from the same word family or tiny subtopic.',
+          'Prefer high-utility words learners can use in speaking, listening, reading, and everyday scenarios.',
+          'Include a few collocations or short phrases when they are more useful than a single word.',
+          'Avoid duplicates, obscure words, brand names, proper nouns, and words that are too technical for the requested level.',
           'Definitions must be concise English learner definitions.',
-          'Examples must be natural and under 16 words.',
+          'Examples must be natural, topic-relevant, and under 16 words.',
           `Translations and example translations must use target language code: ${targetLanguage}.`,
-          'Use partOfSpeech values such as noun, verb, adjective, adverb, phrase, or expression.',
+          'Use partOfSpeech values such as noun, verb, adjective, adverb, phrase, collocation, or expression.',
+          'Order suggestions from most essential to more specific.',
+        ],
+        diversityChecklist: [
+          'core topic nouns',
+          'actions/verbs',
+          'describing words',
+          'common questions or requests',
+          'problems or mistakes',
+          'useful phrases/collocations',
+          'real-world scenario vocabulary',
         ],
         responseShape: {
           suggestions: [
