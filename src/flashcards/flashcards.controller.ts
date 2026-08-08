@@ -73,11 +73,12 @@ export class FlashcardsController {
   async getCardsForReview(
     @Request() req: AuthenticatedRequest,
     @Query('limit') limit: number = 20,
+    @Query('bookId') bookId?: string,
   ) {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return this.flashcardsService.getCardsForReview(req.user.id, limit);
+    return this.flashcardsService.getCardsForReview(req.user.id, limit, bookId);
   }
 
   @Get('stats')

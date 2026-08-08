@@ -1006,6 +1006,76 @@
         ]
       }
     },
+    "/api/v1/words/autocomplete": {
+      "get": {
+        "operationId": "WordsController_autocomplete",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "resil",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 20,
+              "default": 8,
+              "example": 8,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "jwt-auth": []
+          }
+        ],
+        "tags": [
+          "Words"
+        ]
+      }
+    },
+    "/api/v1/words/correct": {
+      "post": {
+        "operationId": "WordsController_correct",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectTextDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "jwt-auth": []
+          }
+        ],
+        "tags": [
+          "Words"
+        ]
+      }
+    },
     "/api/v1/words/suggest": {
       "get": {
         "operationId": "WordsController_suggest",
@@ -1480,6 +1550,23 @@
         },
         "required": [
           "contentType"
+        ]
+      },
+      "CorrectTextDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "example": "she go to school yesterday"
+          },
+          "language": {
+            "type": "string",
+            "example": "en-US",
+            "default": "en-US"
+          }
+        },
+        "required": [
+          "text"
         ]
       }
     }

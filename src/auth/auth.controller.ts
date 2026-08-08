@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Post,
@@ -37,8 +38,11 @@ export class AuthController {
   @Post('refresh')
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
-  async refreshToken(@Body('refreshToken') refreshToken: string) {
-    return this.authService.refreshToken(refreshToken);
+  async refreshToken(
+    @Body('refreshToken') refreshToken?: string,
+    @Headers('x-refresh-token') refreshTokenHeader?: string,
+  ) {
+    return this.authService.refreshToken(refreshToken || refreshTokenHeader);
   }
 
   @Post('logout')

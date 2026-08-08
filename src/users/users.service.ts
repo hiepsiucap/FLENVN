@@ -140,6 +140,61 @@ export class UsersService {
     return { message: 'User deleted successfully' };
   }
 
+  async recordProgress(userId: string, score: number): Promise<void> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const earnedExp = Math.max(0, Math.floor(score));
+    const previousLastActive = user.lastActive;
+    const now = new Date();
+
+    user.exp += earnedExp;
+    user.level = this.calculateLevel(user.exp);
+    user.streak = this.calculateStreak(previousLastActive, now, user.streak);
+    user.lastActive = now;
+
+    await this.userRepository.save(user);
+  }
+
+  private calculateLevel(exp: number): number {
+    return Math.floor(exp / 1000) + 1;
+  }
+
+  private calculateStreak(
+    previousLastActive: Date | null,
+    currentDate: Date,
+    currentStreak: number,
+  ): number {
+    if (!previousLastActive) {
+      return 1;
+    }
+
+    const previousDay = this.startOfDay(previousLastActive);
+    const today = this.startOfDay(currentDate);
+    const daysSinceLastActive = Math.floor(
+      (today.getTime() - previousDay.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    if (daysSinceLastActive === 0) {
+      return currentStreak;
+    }
+
+    if (daysSinceLastActive === 1) {
+      return currentStreak + 1;
+    }
+
+    return 1;
+  }
+
+  private startOfDay(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
   private sanitizeUser(user: User): SanitizedUser {
     const {
       password,

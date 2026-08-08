@@ -15,7 +15,7 @@ import { User } from '../users/user.entity';
 @Entity('books')
 export class Book {
   static readonly DEFAULT_COVER_IMAGE_URL =
-    'https://flenvn.s3.ap-southeast-1.amazonaws.com/images/book.png';
+    'https://flenvn.s3.ap-southeast-1.amazonaws.com/images/logo.png';
 
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -29,9 +29,6 @@ export class Book {
   @Column({ type: 'text', nullable: true })
   description!: string | null;
 
-  @Column({ type: 'varchar', nullable: true })
-  author!: string | null;
-
   @Column({
     type: 'varchar',
     nullable: true,
@@ -41,6 +38,9 @@ export class Book {
 
   @Column({ type: 'text', nullable: true })
   content!: string | null; // Main book content/text
+
+  @Column({ type: 'varchar', nullable: true })
+  fileUrl!: string | null;
 
   @Column({ default: 0 })
   wordCount!: number; // Total words in the book

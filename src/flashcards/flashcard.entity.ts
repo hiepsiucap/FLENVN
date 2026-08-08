@@ -24,6 +24,9 @@ export enum FlashCardStatus {
 @Entity('flashcards')
 @Index(['userId', 'word'], { unique: true })
 export class FlashCard {
+  static readonly DEFAULT_IMAGE_URL =
+    'https://flenvn.s3.ap-southeast-1.amazonaws.com/images/logo.png';
+
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
@@ -50,11 +53,18 @@ export class FlashCard {
   @Column({ type: 'varchar', nullable: true })
   audioUrl!: string | null;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({
+    type: 'varchar',
+    nullable: true,
+    default: FlashCard.DEFAULT_IMAGE_URL,
+  })
   imageUrl!: string | null;
 
   @Column('text', { nullable: true })
   example!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  exampleAudioUrl!: string | null;
 
   @Column('text', { nullable: true })
   exampleTranslation!: string | null;

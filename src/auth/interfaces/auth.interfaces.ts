@@ -13,6 +13,10 @@ export interface AuthUser {
   email: string;
   username: string | null;
   avatar: string;
+  level: number;
+  exp: number;
+  streak: number;
+  lastActive: Date | null;
   isAdmin: boolean;
 }
 

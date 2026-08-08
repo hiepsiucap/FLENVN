@@ -10,6 +10,13 @@ import { randomUUID } from 'crypto';
 import { AppConfigService } from '../config/app-config.service';
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 
+export interface BufferedUploadFile {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+  size: number;
+}
+
 @Injectable()
 export class UploadsService {
   private readonly s3Client: S3Client;
@@ -74,6 +81,49 @@ export class UploadsService {
       fileUrl,
       objectKey,
       expiresIn,
+    };
+  }
+
+  async uploadFile(
+    userId: string,
+    file: BufferedUploadFile,
+    folder: string,
+    allowedMimeTypes = this.appConfigService.allowedMimeTypes,
+  ) {
+    const bucket = this.configService.get<string>('services.aws.s3.bucket');
+    const region =
+      this.configService.get<string>('services.aws.s3.region') || 'us-east-1';
+
+    if (!bucket) {
+      throw new InternalServerErrorException('AWS_S3_BUCKET is not configured');
+    }
+
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Unsupported content type');
+    }
+
+    if (file.size > this.appConfigService.maxFileSize) {
+      throw new BadRequestException('File size exceeds the configured limit');
+    }
+
+    const extension = this.resolveExtension({
+      contentType: file.mimetype,
+      fileName: file.originalname,
+    });
+    const objectKey = `${folder}/${userId}/${Date.now()}-${randomUUID()}${extension}`;
+
+    await this.s3Client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: objectKey,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      }),
+    );
+
+    return {
+      fileUrl: `https://${bucket}.s3.${region}.amazonaws.com/${objectKey}`,
+      objectKey,
     };
   }
 

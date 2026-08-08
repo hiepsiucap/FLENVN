@@ -53,6 +53,13 @@ export class UpdateFlashcardDto {
   @IsString()
   example?: string;
 
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/example-audio.mp3',
+  })
+  @IsOptional()
+  @IsString()
+  exampleAudioUrl?: string;
+
   @ApiPropertyOptional({ example: 'Co ay van kien cu duoi ap luc.' })
   @IsOptional()
   @IsString()

@@ -69,7 +69,14 @@ export class TokenService {
     return savedToken;
   }
 
-  async findValidToken(token: string, type: TokenType): Promise<Token | null> {
+  async findValidToken(
+    token: string | undefined,
+    type: TokenType,
+  ): Promise<Token | null> {
+    if (!token) {
+      return null;
+    }
+
     return this.tokenRepository.findOne({
       where: {
         token: this.hashToken(token),

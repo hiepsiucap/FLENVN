@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -28,6 +29,8 @@ function isFlashcardStatsRow(value: unknown): value is FlashcardStatsRow {
 
 @Injectable()
 export class FlashcardsService {
+  private readonly logger = new Logger(FlashcardsService.name);
+
   constructor(
     @InjectRepository(FlashCard)
     private readonly flashcardRepository: Repository<FlashCard>,
@@ -70,23 +73,11 @@ export class FlashcardsService {
       }
     }
 
-    if (!createFlashcardDto.imageUrl) {
-      createFlashcardDto.imageUrl =
-        await this.flashcardImageService.findImageUrl(createFlashcardDto.word);
-    }
-
-    if (!createFlashcardDto.audioUrl) {
-      createFlashcardDto.audioUrl =
-        await this.flashcardAudioService.createAudioUrl(
-          userId,
-          createFlashcardDto.word,
-        );
-    }
-
     // Create flashcard
     const flashcard = this.flashcardRepository.create({
       ...createFlashcardDto,
       userId,
+      imageUrl: createFlashcardDto.imageUrl || FlashCard.DEFAULT_IMAGE_URL,
       easeFactor: 2.5, // SM-2 algorithm default
       interval: 1,
       repetitions: 0,
@@ -105,6 +96,8 @@ export class FlashcardsService {
         [createFlashcardDto.bookId],
       );
     }
+
+    this.enrichFlashcardAssets(savedFlashcard.id, userId);
 
     return savedFlashcard;
   }
@@ -158,30 +151,32 @@ export class FlashcardsService {
   ): Promise<FlashCard> {
     const flashcard = await this.getFlashcardById(flashcardId, userId);
 
-    if (
-      updateFlashcardDto.word &&
-      updateFlashcardDto.imageUrl === undefined &&
-      !flashcard.imageUrl
-    ) {
-      updateFlashcardDto.imageUrl =
-        await this.flashcardImageService.findImageUrl(updateFlashcardDto.word);
+    const wordChanged =
+      updateFlashcardDto.word !== undefined &&
+      updateFlashcardDto.word !== flashcard.word;
+    const exampleChanged =
+      updateFlashcardDto.example !== undefined &&
+      updateFlashcardDto.example !== flashcard.example;
+
+    if (wordChanged && updateFlashcardDto.audioUrl === undefined) {
+      flashcard.audioUrl = null;
     }
 
-    if (
-      updateFlashcardDto.word &&
-      updateFlashcardDto.audioUrl === undefined &&
-      !flashcard.audioUrl
-    ) {
-      updateFlashcardDto.audioUrl =
-        await this.flashcardAudioService.createAudioUrl(
-          userId,
-          updateFlashcardDto.word,
-        );
+    if (wordChanged && updateFlashcardDto.imageUrl === undefined) {
+      flashcard.imageUrl = FlashCard.DEFAULT_IMAGE_URL;
+    }
+
+    if (exampleChanged && updateFlashcardDto.exampleAudioUrl === undefined) {
+      flashcard.exampleAudioUrl = null;
     }
 
     // Update fields
     Object.assign(flashcard, updateFlashcardDto);
-    return this.flashcardRepository.save(flashcard);
+    const savedFlashcard = await this.flashcardRepository.save(flashcard);
+
+    this.enrichFlashcardAssets(savedFlashcard.id, userId);
+
+    return savedFlashcard;
   }
 
   async deleteFlashcard(
@@ -264,9 +259,10 @@ export class FlashcardsService {
   async getCardsForReview(
     userId: string,
     limit: number = 20,
+    bookId?: string,
   ): Promise<FlashCard[]> {
     const now = new Date();
-    return this.flashcardRepository
+    const query = this.flashcardRepository
       .createQueryBuilder('fc')
       .where('fc.userId = :userId', { userId })
       .andWhere('(fc.nextReviewDate IS NULL OR fc.nextReviewDate <= :now)', {
@@ -274,8 +270,19 @@ export class FlashcardsService {
       })
       .andWhere('fc.status != :status', { status: FlashCardStatus.MASTERED })
       .orderBy('fc.nextReviewDate', 'ASC')
-      .limit(limit)
-      .getMany();
+      .limit(limit);
+
+    if (bookId) {
+      query.andWhere('fc.bookId = :bookId', { bookId });
+    }
+
+    const flashcards = await query.getMany();
+
+    flashcards.forEach((flashcard) => {
+      this.enrichFlashcardAssets(flashcard.id, userId);
+    });
+
+    return flashcards;
   }
 
   // Mark flashcard as mastered
@@ -342,5 +349,58 @@ export class FlashcardsService {
       .trim()
       .split(/\s+/)
       .filter((word) => word.length > 0).length;
+  }
+
+  private enrichFlashcardAssets(flashcardId: string, userId: string): void {
+    void this.generateMissingAssets(flashcardId, userId).catch((error) => {
+      this.logger.warn(
+        `Flashcard asset generation failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+    });
+  }
+
+  private async generateMissingAssets(
+    flashcardId: string,
+    userId: string,
+  ): Promise<void> {
+    const flashcard = await this.flashcardRepository.findOne({
+      where: { id: flashcardId, userId },
+    });
+
+    if (!flashcard) return;
+
+    const updates: Partial<FlashCard> = {};
+
+    if (!flashcard.imageUrl) {
+      const imageUrl = await this.flashcardImageService.findImageUrl(
+        flashcard.word,
+      );
+      if (imageUrl) updates.imageUrl = imageUrl;
+    }
+
+    if (!flashcard.audioUrl) {
+      const audioUrl = await this.flashcardAudioService.createAudioUrl(
+        userId,
+        flashcard.word,
+      );
+      if (audioUrl) updates.audioUrl = audioUrl;
+    }
+
+    if (!flashcard.exampleAudioUrl && flashcard.example) {
+      const exampleAudioUrl = await this.flashcardAudioService.createAudioUrl(
+        userId,
+        flashcard.example,
+      );
+      if (exampleAudioUrl) updates.exampleAudioUrl = exampleAudioUrl;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await this.flashcardRepository.update(
+        { id: flashcardId, userId },
+        updates,
+      );
+    }
   }
 }

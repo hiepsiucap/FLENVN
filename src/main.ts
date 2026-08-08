@@ -7,7 +7,7 @@ import { AppModule } from './app.module';
 import { getLoggerConfig } from './common/logger.config';
 
 async function bootstrap() {
-  const loggerConfig = getLoggerConfig(process.env.NODE_ENV || 'development');
+  const loggerConfig = getLoggerConfig(process.env.NODE_ENV || 'production');
   const app = await NestFactory.create(AppModule, loggerConfig);
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
@@ -16,11 +16,12 @@ async function bootstrap() {
   app.use(helmet());
 
   // CORS
-  const corsOrigins = configService.get<string>('CORS_ORIGINS')?.split(',') || [
-    'http://localhost:3000',
-  ];
+  const corsOriginsConfig = configService.get<string>('CORS_ORIGINS');
+  const corsOrigins = corsOriginsConfig
+    ?.split(',')
+    .map((origin) => origin.trim()) || ['http://localhost:3000'];
   app.enableCors({
-    origin: corsOrigins,
+    origin: corsOrigins.includes('*') ? true : corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-refresh-token'],

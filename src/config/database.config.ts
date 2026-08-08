@@ -16,7 +16,7 @@ export default registerAs('database', () => ({
   },
 
   // TypeORM specific settings
-  synchronize: process.env.NODE_ENV === 'development',
+  synchronize: process.env.DB_SYNCHRONIZE === 'true',
   logging:
     process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
   migrations: ['dist/migrations/*.js'],

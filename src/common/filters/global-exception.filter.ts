@@ -52,6 +52,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
 
         details = responseObj.details;
+        if (details === undefined && Array.isArray(responseObj.message)) {
+          details = responseObj.message;
+        }
       } else {
         message = String(exceptionResponse);
       }

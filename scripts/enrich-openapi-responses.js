@@ -5,8 +5,7 @@ const inputPath = path.resolve(__dirname, '..', 'openapi.json');
 const outputPath = path.resolve(__dirname, '..', 'openapi.with-responses.json');
 
 const openapi = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
-openapi.info.description =
-  `${openapi.info.description || 'FLENVN API'} Includes inferred response schemas for frontend integration. Successful responses are wrapped by ResponseInterceptor as { success, data, timestamp }.`;
+openapi.info.description = `${openapi.info.description || 'FLENVN API'} Includes inferred response schemas for frontend integration. Successful responses are wrapped by ResponseInterceptor as { success, data, timestamp }.`;
 
 const schemas = (openapi.components.schemas ||= {});
 
@@ -14,10 +13,24 @@ function addSchema(name, schema) {
   schemas[name] = schema;
 }
 
-const uuid = { type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000' };
-const dateTime = { type: 'string', format: 'date-time', example: '2026-08-01T10:00:00.000Z' };
+const uuid = {
+  type: 'string',
+  format: 'uuid',
+  example: '550e8400-e29b-41d4-a716-446655440000',
+};
+const dateTime = {
+  type: 'string',
+  format: 'date-time',
+  example: '2026-08-01T10:00:00.000Z',
+};
 const date = { type: 'string', format: 'date', example: '2026-08-01' };
-const message = { type: 'object', properties: { message: { type: 'string', example: 'Operation completed successfully' } }, required: ['message'] };
+const message = {
+  type: 'object',
+  properties: {
+    message: { type: 'string', example: 'Operation completed successfully' },
+  },
+  required: ['message'],
+};
 
 addSchema('ApiEnvelope', {
   type: 'object',
@@ -49,7 +62,11 @@ addSchema('UserResponse', {
     id: uuid,
     email: { type: 'string', format: 'email', example: 'user@example.com' },
     username: { type: 'string', nullable: true, example: 'linh' },
-    avatar: { type: 'string', nullable: true, example: 'https://example.com/avatar.jpg' },
+    avatar: {
+      type: 'string',
+      nullable: true,
+      example: 'https://example.com/avatar.jpg',
+    },
     isEmailVerified: { type: 'boolean', example: true },
     level: { type: 'number', example: 1 },
     exp: { type: 'number', example: 0 },
@@ -108,16 +125,27 @@ addSchema('BookResponse', {
     id: uuid,
     userId: uuid,
     title: { type: 'string', example: 'English Stories' },
-    description: { type: 'string', nullable: true, example: 'Short reading practice' },
+    description: {
+      type: 'string',
+      nullable: true,
+      example: 'Short reading practice',
+    },
     author: { type: 'string', nullable: true, example: 'FLENVN' },
-    coverImage: { type: 'string', nullable: true, example: 'https://example.com/book.png' },
+    coverImage: {
+      type: 'string',
+      nullable: true,
+      example: 'https://example.com/book.png',
+    },
     content: { type: 'string', nullable: true, example: 'Once upon a time...' },
     wordCount: { type: 'number', example: 450 },
     totalCards: { type: 'number', example: 12 },
     isPublic: { type: 'boolean', example: true },
     createdAt: dateTime,
     updatedAt: dateTime,
-    flashcards: { type: 'array', items: { $ref: '#/components/schemas/FlashcardResponse' } },
+    flashcards: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/FlashcardResponse' },
+    },
     user: { $ref: '#/components/schemas/UserResponse' },
   },
 });
@@ -128,18 +156,50 @@ addSchema('FlashcardResponse', {
     id: uuid,
     word: { type: 'string', example: 'serendipity' },
     partOfSpeech: { type: 'string', nullable: true, example: 'noun' },
-    pronunciation: { type: 'string', nullable: true, example: '/ˌserənˈdipəti/' },
-    definition: { type: 'string', nullable: true, example: 'The occurrence of events by chance in a happy way.' },
-    translation: { type: 'string', nullable: true, example: 'sự tình cờ may mắn' },
-    audioUrl: { type: 'string', nullable: true, example: 'https://example.com/audio.mp3' },
-    imageUrl: { type: 'string', nullable: true, example: 'https://example.com/image.jpg' },
-    example: { type: 'string', nullable: true, example: 'Finding that book was pure serendipity.' },
-    exampleTranslation: { type: 'string', nullable: true, example: 'Tìm thấy cuốn sách đó là một sự tình cờ may mắn.' },
+    pronunciation: {
+      type: 'string',
+      nullable: true,
+      example: '/ˌserənˈdipəti/',
+    },
+    definition: {
+      type: 'string',
+      nullable: true,
+      example: 'The occurrence of events by chance in a happy way.',
+    },
+    translation: {
+      type: 'string',
+      nullable: true,
+      example: 'sự tình cờ may mắn',
+    },
+    audioUrl: {
+      type: 'string',
+      nullable: true,
+      example: 'https://example.com/audio.mp3',
+    },
+    imageUrl: {
+      type: 'string',
+      nullable: true,
+      example: 'https://example.com/image.jpg',
+    },
+    example: {
+      type: 'string',
+      nullable: true,
+      example: 'Finding that book was pure serendipity.',
+    },
+    exampleTranslation: {
+      type: 'string',
+      nullable: true,
+      example: 'Tìm thấy cuốn sách đó là một sự tình cờ may mắn.',
+    },
     easeFactor: { type: 'number', example: 2.5 },
     interval: { type: 'number', example: 1 },
     repetitions: { type: 'number', example: 0 },
     nextReviewDate: { ...dateTime, nullable: true },
-    status: { type: 'string', enum: ['new', 'learning', 'reviewing', 'mastered'], example: 'new' },
+    status: {
+      type: 'string',
+      enum: ['new', 'learning', 'reviewing', 'mastered'],
+      example: 'new',
+    },
     userId: uuid,
     bookId: { ...uuid, nullable: true },
     createdAt: dateTime,
@@ -164,12 +224,20 @@ addSchema('SubscriptionPlanResponse', {
   properties: {
     id: uuid,
     name: { type: 'string', example: 'Free' },
-    description: { type: 'string', nullable: true, example: 'Default free plan' },
+    description: {
+      type: 'string',
+      nullable: true,
+      example: 'Default free plan',
+    },
     price: { type: 'number', example: 0 },
     maxBooks: { type: 'number', example: 5 },
     maxWords: { type: 'number', example: 50000 },
     maxFlashcards: { type: 'number', example: 100 },
-    features: { type: 'object', additionalProperties: { type: 'boolean' }, example: { emailSupport: true } },
+    features: {
+      type: 'object',
+      additionalProperties: { type: 'boolean' },
+      example: { emailSupport: true },
+    },
     isActive: { type: 'boolean', example: true },
     createdAt: dateTime,
     updatedAt: dateTime,
@@ -213,8 +281,16 @@ addSchema('SessionResponse', {
   type: 'object',
   properties: {
     id: uuid,
-    type: { type: 'string', enum: ['review', 'learn', 'practice'], example: 'review' },
-    result: { type: 'string', enum: ['correct', 'incorrect', 'skipped'], example: 'correct' },
+    type: {
+      type: 'string',
+      enum: ['review', 'learn', 'practice'],
+      example: 'review',
+    },
+    result: {
+      type: 'string',
+      enum: ['correct', 'incorrect', 'skipped'],
+      example: 'correct',
+    },
     responseTime: { type: 'number', nullable: true, example: 1800 },
     score: { type: 'number', example: 10 },
     createdAt: dateTime,
@@ -234,7 +310,10 @@ addSchema('CreateSessionResponseData', {
 addSchema('SessionHistoryResponseData', {
   type: 'object',
   properties: {
-    sessions: { type: 'array', items: { $ref: '#/components/schemas/SessionResponse' } },
+    sessions: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/SessionResponse' },
+    },
     count: { type: 'number', example: 3 },
   },
 });
@@ -292,9 +371,18 @@ addSchema('TranslateResponse', {
 addSchema('UploadUrlResponse', {
   type: 'object',
   properties: {
-    uploadUrl: { type: 'string', example: 'https://bucket.s3.region.amazonaws.com/key?signature=...' },
-    fileUrl: { type: 'string', example: 'https://bucket.s3.region.amazonaws.com/images/user/file.jpg' },
-    objectKey: { type: 'string', example: 'images/user-id/1722519900000-file.jpg' },
+    uploadUrl: {
+      type: 'string',
+      example: 'https://bucket.s3.region.amazonaws.com/key?signature=...',
+    },
+    fileUrl: {
+      type: 'string',
+      example: 'https://bucket.s3.region.amazonaws.com/images/user/file.jpg',
+    },
+    objectKey: {
+      type: 'string',
+      example: 'images/user-id/1722519900000-file.jpg',
+    },
     expiresIn: { type: 'number', example: 3600 },
   },
 });
@@ -307,7 +395,13 @@ addSchema('WordSuggestionResponse', {
     partOfSpeech: { type: 'string', example: 'noun' },
     definitions: {
       type: 'array',
-      items: { type: 'object', properties: { text: { type: 'string' }, partOfSpeech: { type: 'string' } } },
+      items: {
+        type: 'object',
+        properties: {
+          text: { type: 'string' },
+          partOfSpeech: { type: 'string' },
+        },
+      },
     },
     translation: { type: 'string', example: 'sự tình cờ may mắn' },
     examples: {
@@ -316,17 +410,34 @@ addSchema('WordSuggestionResponse', {
         type: 'object',
         properties: {
           text: { type: 'string', example: 'It was pure serendipity.' },
-          translation: { type: 'string', example: 'Đó hoàn toàn là sự tình cờ may mắn.' },
+          translation: {
+            type: 'string',
+            example: 'Đó hoàn toàn là sự tình cờ may mắn.',
+          },
           meaning: { type: 'string' },
           partOfSpeech: { type: 'string' },
           source: { type: 'string', enum: ['openai', 'dictionary'] },
         },
       },
     },
-    audio: { type: 'object', properties: { url: { type: 'string' }, source: { type: 'string', enum: ['polly', 'dictionary'] } } },
+    audio: {
+      type: 'object',
+      properties: {
+        url: { type: 'string' },
+        source: { type: 'string', enum: ['polly', 'dictionary'] },
+      },
+    },
     images: {
       type: 'array',
-      items: { type: 'object', properties: { url: { type: 'string' }, source: { type: 'string', enum: ['pexels', 'unsplash'] }, photographer: { type: 'string' }, photographerUrl: { type: 'string' } } },
+      items: {
+        type: 'object',
+        properties: {
+          url: { type: 'string' },
+          source: { type: 'string', enum: ['pexels', 'unsplash', 'default'] },
+          photographer: { type: 'string' },
+          photographerUrl: { type: 'string' },
+        },
+      },
     },
     sources: {
       type: 'object',
@@ -335,8 +446,62 @@ addSchema('WordSuggestionResponse', {
         translation: { type: 'string' },
         audio: { type: 'string' },
         examples: { type: 'string' },
-        images: { type: 'array', items: { type: 'string', enum: ['pexels', 'unsplash'] } },
+        images: {
+          type: 'array',
+          items: { type: 'string', enum: ['pexels', 'unsplash', 'default'] },
+        },
       },
+    },
+  },
+});
+
+addSchema('WordAutocompleteResponse', {
+  type: 'object',
+  properties: {
+    query: { type: 'string', example: 'resil' },
+    suggestions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          word: { type: 'string', example: 'resilient' },
+          score: { type: 'number', example: 1234 },
+        },
+      },
+    },
+    source: { type: 'string', enum: ['datamuse'], example: 'datamuse' },
+  },
+});
+
+addSchema('TextCorrectionResponse', {
+  type: 'object',
+  properties: {
+    original: { type: 'string', example: 'she go to school yesterday' },
+    corrected: { type: 'string', example: 'She went to school yesterday.' },
+    language: { type: 'string', example: 'en-US' },
+    suggestions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          offset: { type: 'number', example: 4 },
+          length: { type: 'number', example: 2 },
+          original: { type: 'string', example: 'go' },
+          replacements: {
+            type: 'array',
+            items: { type: 'string' },
+            example: ['went'],
+          },
+          message: { type: 'string', example: 'Possible grammar issue' },
+          ruleId: { type: 'string', example: 'PAST_TENSE' },
+          issueType: { type: 'string', example: 'grammar' },
+        },
+      },
+    },
+    source: {
+      type: 'string',
+      enum: ['languagetool'],
+      example: 'languagetool',
     },
   },
 });
@@ -362,63 +527,293 @@ function jsonResponse(dataSchema, description = 'Successful response') {
 }
 
 function errorResponses(...statuses) {
-  return Object.fromEntries(statuses.map((status) => [
-    String(status),
-    {
-      description: `${status} error response`,
-      content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } },
-    },
-  ]));
+  return Object.fromEntries(
+    statuses.map((status) => [
+      String(status),
+      {
+        description: `${status} error response`,
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/ErrorResponse' },
+          },
+        },
+      },
+    ]),
+  );
 }
 
 const routes = {
-  'GET /api/v1': { status: '200', schema: { type: 'string', example: 'Hello World!' } },
-  'POST /api/v1/auth/register': { status: '201', schema: { $ref: '#/components/schemas/RegisterResponseData' }, errors: [400, 409, 429, 500] },
-  'POST /api/v1/auth/login': { status: '200', schema: { $ref: '#/components/schemas/LoginResponseData' }, errors: [400, 401, 403, 429, 500] },
-  'POST /api/v1/auth/refresh': { status: '200', schema: { $ref: '#/components/schemas/TokenResponseData' }, errors: [400, 401, 429, 500] },
-  'POST /api/v1/auth/logout': { status: '200', schema: message, errors: [401, 500] },
-  'GET /api/v1/auth/verify-email': { status: '200', schema: message, errors: [400, 429, 500] },
-  'GET /api/v1/auth/profile': { status: '200', schema: { type: 'object', properties: { user: { $ref: '#/components/schemas/UserResponse' } } }, errors: [401, 500] },
-  'GET /api/v1/users/profile': { status: '200', schema: { $ref: '#/components/schemas/UserResponse' }, errors: [401, 404, 500] },
-  'PUT /api/v1/users/profile': { status: '200', schema: { $ref: '#/components/schemas/UserResponse' }, errors: [400, 401, 404, 500] },
-  'POST /api/v1/users/change-password': { status: '200', schema: message, errors: [400, 401, 500] },
-  'GET /api/v1/users': { status: '200', schema: { type: 'array', items: { $ref: '#/components/schemas/UserResponse' } }, errors: [401, 403, 500] },
-  'GET /api/v1/users/{id}': { status: '200', schema: { $ref: '#/components/schemas/UserResponse' }, errors: [401, 403, 404, 500] },
-  'DELETE /api/v1/users/{id}': { status: '200', schema: message, errors: [401, 403, 404, 500] },
-  'POST /api/v1/books': { status: '201', schema: { $ref: '#/components/schemas/BookResponse' }, errors: [400, 401, 500] },
-  'GET /api/v1/books': { status: '200', schema: { type: 'array', items: { $ref: '#/components/schemas/BookResponse' } }, errors: [401, 500] },
-  'GET /api/v1/books/public': { status: '200', schema: { type: 'array', items: { $ref: '#/components/schemas/BookResponse' } }, errors: [500] },
-  'GET /api/v1/books/{id}': { status: '200', schema: { $ref: '#/components/schemas/BookResponse' }, errors: [401, 403, 404, 500] },
-  'PUT /api/v1/books/{id}': { status: '200', schema: { $ref: '#/components/schemas/BookResponse' }, errors: [400, 401, 403, 404, 500] },
-  'DELETE /api/v1/books/{id}': { status: '200', schema: message, errors: [401, 403, 404, 500] },
-  'POST /api/v1/flashcards': { status: '201', schema: { $ref: '#/components/schemas/FlashcardResponse' }, errors: [400, 401, 404, 500] },
-  'GET /api/v1/flashcards': { status: '200', schema: { type: 'array', items: { $ref: '#/components/schemas/FlashcardResponse' } }, errors: [400, 401, 500] },
-  'GET /api/v1/flashcards/review/due': { status: '200', schema: { type: 'array', items: { $ref: '#/components/schemas/FlashcardResponse' } }, errors: [401, 500] },
-  'GET /api/v1/flashcards/stats': { status: '200', schema: { $ref: '#/components/schemas/FlashcardStatsResponse' }, errors: [401, 500] },
-  'GET /api/v1/flashcards/{id}': { status: '200', schema: { $ref: '#/components/schemas/FlashcardResponse' }, errors: [401, 403, 404, 500] },
-  'PUT /api/v1/flashcards/{id}': { status: '200', schema: { $ref: '#/components/schemas/FlashcardResponse' }, errors: [400, 401, 403, 404, 500] },
-  'DELETE /api/v1/flashcards/{id}': { status: '200', schema: message, errors: [401, 403, 404, 500] },
-  'POST /api/v1/flashcards/{id}/review': { status: '200', schema: { $ref: '#/components/schemas/FlashcardResponse' }, errors: [400, 401, 403, 404, 500] },
-  'POST /api/v1/flashcards/{id}/mastered': { status: '200', schema: { $ref: '#/components/schemas/FlashcardResponse' }, errors: [401, 403, 404, 500] },
-  'POST /api/v1/sessions/flashcard/{flashcardId}': { status: '201', schema: { $ref: '#/components/schemas/CreateSessionResponseData' }, errors: [400, 401, 403, 404, 500] },
-  'GET /api/v1/sessions': { status: '200', schema: { $ref: '#/components/schemas/SessionHistoryResponseData' }, errors: [401, 500] },
-  'GET /api/v1/sessions/stats': { status: '200', schema: { $ref: '#/components/schemas/StudyStatsResponse' }, errors: [401, 500] },
-  'GET /api/v1/sessions/streak': { status: '200', schema: { $ref: '#/components/schemas/StreakStatsResponse' }, errors: [401, 500] },
-  'DELETE /api/v1/sessions/{sessionId}': { status: '200', schema: message, errors: [401, 403, 404, 500] },
-  'POST /api/v1/subscriptions/plans': { status: '201', schema: { $ref: '#/components/schemas/SubscriptionPlanResponse' }, errors: [400, 401, 403, 500] },
-  'GET /api/v1/subscriptions/plans': { status: '200', schema: { type: 'array', items: { $ref: '#/components/schemas/SubscriptionPlanResponse' } }, errors: [500] },
-  'GET /api/v1/subscriptions/plans/{id}': { status: '200', schema: { $ref: '#/components/schemas/SubscriptionPlanResponse' }, errors: [404, 500] },
-  'PUT /api/v1/subscriptions/plans/{id}': { status: '200', schema: { $ref: '#/components/schemas/SubscriptionPlanResponse' }, errors: [400, 401, 403, 404, 500] },
-  'DELETE /api/v1/subscriptions/plans/{id}': { status: '200', schema: message, errors: [401, 403, 404, 500] },
-  'GET /api/v1/subscriptions/my-subscription': { status: '200', schema: { $ref: '#/components/schemas/UserSubscriptionResponse' }, errors: [401, 404, 500] },
-  'POST /api/v1/subscriptions/upgrade': { status: '200', schema: { $ref: '#/components/schemas/UserSubscriptionResponse' }, errors: [400, 401, 404, 500] },
-  'GET /api/v1/subscriptions/usage': { status: '200', schema: { $ref: '#/components/schemas/UsageStatsResponse' }, errors: [401, 404, 500] },
-  'POST /api/v1/subscriptions/check-book-limit': { status: '200', schema: { type: 'object', properties: { canAdd: { type: 'boolean', example: true } } }, errors: [401, 404, 500] },
-  'POST /api/v1/subscriptions/check-words-limit': { status: '200', schema: { type: 'object', properties: { canAdd: { type: 'boolean', example: true } } }, errors: [400, 401, 404, 500] },
-  'POST /api/v1/translation/translate': { status: '201', schema: { $ref: '#/components/schemas/TranslateResponse' }, errors: [400, 500] },
-  'GET /api/v1/uploads/presign-image': { status: '200', schema: { $ref: '#/components/schemas/UploadUrlResponse' }, errors: [400, 401, 500] },
-  'POST /api/v1/uploads/presign-image': { status: '201', schema: { $ref: '#/components/schemas/UploadUrlResponse' }, errors: [400, 401, 500] },
-  'GET /api/v1/words/suggest': { status: '200', schema: { $ref: '#/components/schemas/WordSuggestionResponse' }, errors: [400, 401, 500] },
+  'GET /api/v1': {
+    status: '200',
+    schema: { type: 'string', example: 'Hello World!' },
+  },
+  'POST /api/v1/auth/register': {
+    status: '201',
+    schema: { $ref: '#/components/schemas/RegisterResponseData' },
+    errors: [400, 409, 429, 500],
+  },
+  'POST /api/v1/auth/login': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/LoginResponseData' },
+    errors: [400, 401, 403, 429, 500],
+  },
+  'POST /api/v1/auth/refresh': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/TokenResponseData' },
+    errors: [400, 401, 429, 500],
+  },
+  'POST /api/v1/auth/logout': {
+    status: '200',
+    schema: message,
+    errors: [401, 500],
+  },
+  'GET /api/v1/auth/verify-email': {
+    status: '200',
+    schema: message,
+    errors: [400, 429, 500],
+  },
+  'GET /api/v1/auth/profile': {
+    status: '200',
+    schema: {
+      type: 'object',
+      properties: { user: { $ref: '#/components/schemas/UserResponse' } },
+    },
+    errors: [401, 500],
+  },
+  'GET /api/v1/users/profile': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/UserResponse' },
+    errors: [401, 404, 500],
+  },
+  'PUT /api/v1/users/profile': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/UserResponse' },
+    errors: [400, 401, 404, 500],
+  },
+  'POST /api/v1/users/change-password': {
+    status: '200',
+    schema: message,
+    errors: [400, 401, 500],
+  },
+  'GET /api/v1/users': {
+    status: '200',
+    schema: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/UserResponse' },
+    },
+    errors: [401, 403, 500],
+  },
+  'GET /api/v1/users/{id}': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/UserResponse' },
+    errors: [401, 403, 404, 500],
+  },
+  'DELETE /api/v1/users/{id}': {
+    status: '200',
+    schema: message,
+    errors: [401, 403, 404, 500],
+  },
+  'POST /api/v1/books': {
+    status: '201',
+    schema: { $ref: '#/components/schemas/BookResponse' },
+    errors: [400, 401, 500],
+  },
+  'GET /api/v1/books': {
+    status: '200',
+    schema: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/BookResponse' },
+    },
+    errors: [401, 500],
+  },
+  'GET /api/v1/books/public': {
+    status: '200',
+    schema: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/BookResponse' },
+    },
+    errors: [500],
+  },
+  'GET /api/v1/books/{id}': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/BookResponse' },
+    errors: [401, 403, 404, 500],
+  },
+  'PUT /api/v1/books/{id}': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/BookResponse' },
+    errors: [400, 401, 403, 404, 500],
+  },
+  'DELETE /api/v1/books/{id}': {
+    status: '200',
+    schema: message,
+    errors: [401, 403, 404, 500],
+  },
+  'POST /api/v1/flashcards': {
+    status: '201',
+    schema: { $ref: '#/components/schemas/FlashcardResponse' },
+    errors: [400, 401, 404, 500],
+  },
+  'GET /api/v1/flashcards': {
+    status: '200',
+    schema: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/FlashcardResponse' },
+    },
+    errors: [400, 401, 500],
+  },
+  'GET /api/v1/flashcards/review/due': {
+    status: '200',
+    schema: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/FlashcardResponse' },
+    },
+    errors: [401, 500],
+  },
+  'GET /api/v1/flashcards/stats': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/FlashcardStatsResponse' },
+    errors: [401, 500],
+  },
+  'GET /api/v1/flashcards/{id}': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/FlashcardResponse' },
+    errors: [401, 403, 404, 500],
+  },
+  'PUT /api/v1/flashcards/{id}': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/FlashcardResponse' },
+    errors: [400, 401, 403, 404, 500],
+  },
+  'DELETE /api/v1/flashcards/{id}': {
+    status: '200',
+    schema: message,
+    errors: [401, 403, 404, 500],
+  },
+  'POST /api/v1/flashcards/{id}/review': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/FlashcardResponse' },
+    errors: [400, 401, 403, 404, 500],
+  },
+  'POST /api/v1/flashcards/{id}/mastered': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/FlashcardResponse' },
+    errors: [401, 403, 404, 500],
+  },
+  'POST /api/v1/sessions/flashcard/{flashcardId}': {
+    status: '201',
+    schema: { $ref: '#/components/schemas/CreateSessionResponseData' },
+    errors: [400, 401, 403, 404, 500],
+  },
+  'GET /api/v1/sessions': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/SessionHistoryResponseData' },
+    errors: [401, 500],
+  },
+  'GET /api/v1/sessions/stats': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/StudyStatsResponse' },
+    errors: [401, 500],
+  },
+  'GET /api/v1/sessions/streak': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/StreakStatsResponse' },
+    errors: [401, 500],
+  },
+  'DELETE /api/v1/sessions/{sessionId}': {
+    status: '200',
+    schema: message,
+    errors: [401, 403, 404, 500],
+  },
+  'POST /api/v1/subscriptions/plans': {
+    status: '201',
+    schema: { $ref: '#/components/schemas/SubscriptionPlanResponse' },
+    errors: [400, 401, 403, 500],
+  },
+  'GET /api/v1/subscriptions/plans': {
+    status: '200',
+    schema: {
+      type: 'array',
+      items: { $ref: '#/components/schemas/SubscriptionPlanResponse' },
+    },
+    errors: [500],
+  },
+  'GET /api/v1/subscriptions/plans/{id}': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/SubscriptionPlanResponse' },
+    errors: [404, 500],
+  },
+  'PUT /api/v1/subscriptions/plans/{id}': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/SubscriptionPlanResponse' },
+    errors: [400, 401, 403, 404, 500],
+  },
+  'DELETE /api/v1/subscriptions/plans/{id}': {
+    status: '200',
+    schema: message,
+    errors: [401, 403, 404, 500],
+  },
+  'GET /api/v1/subscriptions/my-subscription': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/UserSubscriptionResponse' },
+    errors: [401, 404, 500],
+  },
+  'POST /api/v1/subscriptions/upgrade': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/UserSubscriptionResponse' },
+    errors: [400, 401, 404, 500],
+  },
+  'GET /api/v1/subscriptions/usage': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/UsageStatsResponse' },
+    errors: [401, 404, 500],
+  },
+  'POST /api/v1/subscriptions/check-book-limit': {
+    status: '200',
+    schema: {
+      type: 'object',
+      properties: { canAdd: { type: 'boolean', example: true } },
+    },
+    errors: [401, 404, 500],
+  },
+  'POST /api/v1/subscriptions/check-words-limit': {
+    status: '200',
+    schema: {
+      type: 'object',
+      properties: { canAdd: { type: 'boolean', example: true } },
+    },
+    errors: [400, 401, 404, 500],
+  },
+  'POST /api/v1/translation/translate': {
+    status: '201',
+    schema: { $ref: '#/components/schemas/TranslateResponse' },
+    errors: [400, 500],
+  },
+  'GET /api/v1/uploads/presign-image': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/UploadUrlResponse' },
+    errors: [400, 401, 500],
+  },
+  'POST /api/v1/uploads/presign-image': {
+    status: '201',
+    schema: { $ref: '#/components/schemas/UploadUrlResponse' },
+    errors: [400, 401, 500],
+  },
+  'GET /api/v1/words/autocomplete': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/WordAutocompleteResponse' },
+    errors: [400, 401, 500],
+  },
+  'POST /api/v1/words/correct': {
+    status: '201',
+    schema: { $ref: '#/components/schemas/TextCorrectionResponse' },
+    errors: [400, 401, 500],
+  },
+  'GET /api/v1/words/suggest': {
+    status: '200',
+    schema: { $ref: '#/components/schemas/WordSuggestionResponse' },
+    errors: [400, 401, 500],
+  },
 };
 
 for (const [rawPath, pathItem] of Object.entries(openapi.paths)) {

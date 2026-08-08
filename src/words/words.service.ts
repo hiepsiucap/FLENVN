@@ -5,6 +5,8 @@ import {
   FlashcardImageSuggestion,
 } from '../flashcards/flashcard-image.service';
 import { TranslateService } from '../translate/translate.service';
+import { AutocompleteWordDto } from './dto/autocomplete-word.dto';
+import { CorrectTextDto } from './dto/correct-text.dto';
 import { SuggestWordDto } from './dto/suggest-word.dto';
 import { WordsExampleService } from './words-example.service';
 
@@ -22,6 +24,29 @@ interface DictionaryResponseItem {
       example?: string;
     }>;
   }>;
+}
+
+interface DatamuseSuggestion {
+  word?: string;
+  score?: number;
+}
+
+interface LanguageToolMatch {
+  message?: string;
+  offset?: number;
+  length?: number;
+  replacements?: Array<{
+    value?: string;
+  }>;
+  rule?: {
+    id?: string;
+    description?: string;
+    issueType?: string;
+  };
+}
+
+interface LanguageToolResponse {
+  matches?: LanguageToolMatch[];
 }
 
 export interface DefinitionSuggestion {
@@ -56,8 +81,33 @@ export interface WordSuggestionResponse {
     translation?: string;
     audio?: string;
     examples?: string;
-    images: Array<'pexels' | 'unsplash'>;
+    images: Array<'pexels' | 'unsplash' | 'default'>;
   };
+}
+
+export interface WordAutocompleteResponse {
+  query: string;
+  suggestions: Array<{
+    word: string;
+    score: number;
+  }>;
+  source: 'datamuse';
+}
+
+export interface TextCorrectionResponse {
+  original: string;
+  corrected: string;
+  language: string;
+  suggestions: Array<{
+    offset: number;
+    length: number;
+    original: string;
+    replacements: string[];
+    message?: string;
+    ruleId?: string;
+    issueType?: string;
+  }>;
+  source: 'languagetool';
 }
 
 @Injectable()
@@ -70,6 +120,125 @@ export class WordsService {
     private readonly translateService: TranslateService,
     private readonly wordsExampleService: WordsExampleService,
   ) {}
+
+  async autocompleteWords(
+    dto: AutocompleteWordDto,
+  ): Promise<WordAutocompleteResponse> {
+    const query = dto.q.trim();
+    if (!query) {
+      throw new BadRequestException('Query must not be empty');
+    }
+
+    const limit = dto.limit || 8;
+
+    try {
+      const url = new URL('https://api.datamuse.com/sug');
+      url.searchParams.set('s', query);
+      url.searchParams.set('max', String(limit));
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        this.logger.warn(`Datamuse autocomplete failed: ${response.status}`);
+        return {
+          query,
+          suggestions: [],
+          source: 'datamuse',
+        };
+      }
+
+      const data = (await response.json()) as unknown;
+      const suggestions = Array.isArray(data)
+        ? (data as DatamuseSuggestion[])
+            .filter((item) => item.word)
+            .map((item) => ({
+              word: String(item.word),
+              score: Number(item.score || 0),
+            }))
+        : [];
+
+      return {
+        query,
+        suggestions,
+        source: 'datamuse',
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Datamuse autocomplete failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+      return {
+        query,
+        suggestions: [],
+        source: 'datamuse',
+      };
+    }
+  }
+
+  async correctText(dto: CorrectTextDto): Promise<TextCorrectionResponse> {
+    const original = dto.text.trim();
+    if (!original) {
+      throw new BadRequestException('Text must not be empty');
+    }
+
+    const language = dto.language || 'en-US';
+
+    try {
+      const body = new URLSearchParams();
+      body.set('text', original);
+      body.set('language', language);
+
+      const response = await fetch('https://api.languagetool.org/v2/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body,
+      });
+
+      if (!response.ok) {
+        this.logger.warn(`LanguageTool correction failed: ${response.status}`);
+        return this.emptyCorrection(original, language);
+      }
+
+      const data = (await response.json()) as LanguageToolResponse;
+      const suggestions = (data.matches || [])
+        .filter(
+          (match) => match.offset !== undefined && match.length !== undefined,
+        )
+        .map((match) => {
+          const offset = Number(match.offset);
+          const length = Number(match.length);
+          return {
+            offset,
+            length,
+            original: original.slice(offset, offset + length),
+            replacements: (match.replacements || [])
+              .map((replacement) => replacement.value)
+              .filter((value): value is string => !!value)
+              .slice(0, 5),
+            message: match.message,
+            ruleId: match.rule?.id,
+            issueType: match.rule?.issueType,
+          };
+        });
+
+      return {
+        original,
+        corrected: this.applyCorrections(original, suggestions),
+        language,
+        suggestions,
+        source: 'languagetool',
+      };
+    } catch (error) {
+      this.logger.warn(
+        `LanguageTool correction failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+      return this.emptyCorrection(original, language);
+    }
+  }
 
   async suggestWord(
     userId: string,
@@ -153,6 +322,36 @@ export class WordsService {
       );
       return [];
     }
+  }
+
+  private emptyCorrection(
+    original: string,
+    language: string,
+  ): TextCorrectionResponse {
+    return {
+      original,
+      corrected: original,
+      language,
+      suggestions: [],
+      source: 'languagetool',
+    };
+  }
+
+  private applyCorrections(
+    original: string,
+    suggestions: TextCorrectionResponse['suggestions'],
+  ): string {
+    return [...suggestions]
+      .filter((suggestion) => suggestion.replacements.length > 0)
+      .sort((a, b) => b.offset - a.offset)
+      .reduce((corrected, suggestion) => {
+        const replacement = suggestion.replacements[0];
+        return (
+          corrected.slice(0, suggestion.offset) +
+          replacement +
+          corrected.slice(suggestion.offset + suggestion.length)
+        );
+      }, original);
   }
 
   private extractDefinitions(

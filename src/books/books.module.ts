@@ -4,9 +4,14 @@ import { Book } from './book.entity';
 import { BooksService } from './books.service';
 import { BooksController } from './books.controller';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Book]), SubscriptionsModule],
+  imports: [
+    TypeOrmModule.forFeature([Book]),
+    SubscriptionsModule,
+    UploadsModule,
+  ],
   controllers: [BooksController],
   providers: [BooksService],
   exports: [BooksService],

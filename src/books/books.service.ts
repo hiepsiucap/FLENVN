@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { FlashCardStatus } from '../flashcards/flashcard.entity';
 import { Book } from './book.entity';
 import { CreateBookDto } from './dto/create-book.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
@@ -65,6 +66,50 @@ export class BooksService {
       relations: ['flashcards'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async getDueReviewCounts(userId: string): Promise<
+    Array<{
+      bookId: string;
+      title: string;
+      dueForReview: number;
+      totalCards: number;
+    }>
+  > {
+    const rows = await this.bookRepository
+      .createQueryBuilder('book')
+      .leftJoin(
+        'book.flashcards',
+        'dueFlashcard',
+        `
+        (dueFlashcard.nextReviewDate IS NULL OR dueFlashcard.nextReviewDate <= :now)
+        AND dueFlashcard.status != :masteredStatus
+        `,
+        {
+          now: new Date(),
+          masteredStatus: FlashCardStatus.MASTERED,
+        },
+      )
+      .select('book.id', 'bookId')
+      .addSelect('book.title', 'title')
+      .addSelect('book.totalCards', 'totalCards')
+      .addSelect('COUNT(dueFlashcard.id)', 'dueForReview')
+      .where('book.userId = :userId', { userId })
+      .groupBy('book.id')
+      .orderBy('book.createdAt', 'DESC')
+      .getRawMany<{
+        bookId: string;
+        title: string;
+        totalCards: number;
+        dueForReview: string;
+      }>();
+
+    return rows.map((row) => ({
+      bookId: row.bookId,
+      title: row.title,
+      totalCards: Number(row.totalCards),
+      dueForReview: Number.parseInt(row.dueForReview, 10),
+    }));
   }
 
   async getBookById(bookId: string, userId: string): Promise<Book> {
@@ -160,14 +205,35 @@ export class BooksService {
       throw new ForbiddenException('You can only delete your own books');
     }
 
-    // Reduce subscription usage when deleting
-    await this.subscriptionsService.updateUserUsage(
-      userId,
-      -1,
-      -book.wordCount,
-    );
+    await this.bookRepository.manager.transaction(async (manager) => {
+      await manager.query(
+        `
+        DELETE FROM sessions
+        WHERE "flashcardId" IN (
+          SELECT id FROM flashcards WHERE "bookId" = $1
+        )
+        `,
+        [bookId],
+      );
 
-    await this.bookRepository.remove(book);
+      await manager.query('DELETE FROM flashcards WHERE "bookId" = $1', [
+        bookId,
+      ]);
+
+      await manager.delete(Book, { id: bookId });
+
+      await manager.query(
+        `
+        UPDATE users
+        SET
+          "booksCount" = GREATEST("booksCount" - 1, 0),
+          "totalWordsUsed" = GREATEST("totalWordsUsed" - $2, 0)
+        WHERE id = $1
+        `,
+        [userId, book.wordCount],
+      );
+    });
+
     return { message: 'Book deleted successfully' };
   }
 

@@ -6,6 +6,7 @@ export const getDatabaseConfig = (
 ): TypeOrmModuleOptions => {
   const isProduction = configService.get<string>('NODE_ENV') === 'production';
   const useSsl = configService.get<string>('DB_SSL') === 'true';
+  const synchronize = configService.get<string>('DB_SYNCHRONIZE') === 'true';
 
   return {
     type: 'postgres',
@@ -15,7 +16,7 @@ export const getDatabaseConfig = (
     password: configService.get<string>('DB_PASS'),
     database: configService.get<string>('DB_NAME'),
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-    synchronize: !isProduction,
+    synchronize,
     logging: !isProduction,
     ssl: useSsl
       ? {

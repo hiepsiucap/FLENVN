@@ -102,7 +102,9 @@ export class AuthService {
     }
 
     if (!user.isEmailVerified) {
-      throw new ForbiddenException('Please verify your email before logging in');
+      throw new ForbiddenException(
+        'Please verify your email before logging in',
+      );
     }
 
     // Update last active
@@ -120,7 +122,11 @@ export class AuthService {
     };
   }
 
-  async refreshToken(refreshTokenString: string): Promise<AuthTokens> {
+  async refreshToken(refreshTokenString?: string): Promise<AuthTokens> {
+    if (!refreshTokenString) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
     const tokenRecord = await this.tokenService.findValidToken(
       refreshTokenString,
       TokenType.REFRESH,
@@ -211,6 +217,10 @@ export class AuthService {
       email: user.email,
       username: user.username,
       avatar: user.avatar,
+      level: user.level,
+      exp: user.exp,
+      streak: user.streak,
+      lastActive: user.lastActive,
       isAdmin: user.isAdmin,
     };
   }

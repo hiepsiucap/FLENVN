@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SessionsService } from './sessions.service';
 import { CreateSessionDto } from './dto/create-session.dto';
+import { CreatePracticeSessionDto } from './dto/create-practice-session.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { User } from '../users/user.entity';
 
@@ -37,6 +38,23 @@ export class SessionsController {
     return {
       message: 'Session recorded successfully',
       session,
+    };
+  }
+
+  @Post('practice')
+  @HttpCode(HttpStatus.CREATED)
+  async createPracticeSession(
+    @Body() createPracticeSessionDto: CreatePracticeSessionDto,
+    @CurrentUser() user: User,
+  ) {
+    const practiceSession = await this.sessionsService.createPracticeSession(
+      user.id,
+      createPracticeSessionDto,
+    );
+
+    return {
+      message: 'Practice session recorded successfully',
+      practiceSession,
     };
   }
 

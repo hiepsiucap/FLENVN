@@ -2,7 +2,9 @@ import * as Joi from 'joi';
 
 export const validationSchema = Joi.object({
   // App Configuration
-  NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
+  NODE_ENV: Joi.string()
+    .valid('development', 'test', 'production')
+    .default('production'),
   PORT: Joi.number().default(3000),
   CORS_ORIGIN: Joi.string().optional(),
   CORS_ORIGINS: Joi.string().default('http://localhost:3000'),
@@ -25,6 +27,7 @@ export const validationSchema = Joi.object({
   DB_SSL_REJECT_UNAUTHORIZED: Joi.string()
     .valid('true', 'false')
     .default('true'),
+  DB_SYNCHRONIZE: Joi.string().valid('true', 'false').default('false'),
 
   // JWT Configuration
   JWT_ACCESS_SECRET: Joi.string().min(24).required(),

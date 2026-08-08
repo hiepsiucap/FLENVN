@@ -19,15 +19,15 @@ export class CreateBookDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ example: 'Bill H' })
-  @IsOptional()
-  @IsString()
-  author?: string;
-
   @ApiPropertyOptional({ example: 'Book body content...' })
   @IsOptional()
   @IsString()
   content?: string;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/book.pdf' })
+  @IsOptional()
+  @IsString()
+  fileUrl?: string;
 
   @ApiPropertyOptional({ example: 'https://cdn.example.com/cover.jpg' })
   @IsOptional()

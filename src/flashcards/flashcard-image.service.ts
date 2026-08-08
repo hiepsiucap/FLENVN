@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { FlashCard } from './flashcard.entity';
 
 interface PexelsSearchResponse {
   photos?: Array<{
@@ -35,7 +36,7 @@ interface UnsplashSearchResponse {
 
 export interface FlashcardImageSuggestion {
   url: string;
-  source: 'pexels' | 'unsplash';
+  source: 'pexels' | 'unsplash' | 'default';
   description?: string;
   author?: string;
   sourceUrl?: string;
@@ -43,6 +44,8 @@ export interface FlashcardImageSuggestion {
 
 @Injectable()
 export class FlashcardImageService {
+  static readonly DEFAULT_FLASHCARD_IMAGE_URL = FlashCard.DEFAULT_IMAGE_URL;
+
   private readonly logger = new Logger(FlashcardImageService.name);
 
   constructor(private readonly configService: ConfigService) {}
@@ -61,7 +64,17 @@ export class FlashcardImageService {
     const pexelsImages = await this.findPexelsImageUrls(query, limit);
     if (pexelsImages.length > 0) return pexelsImages;
 
-    return this.findUnsplashImageUrls(query, limit);
+    const unsplashImages = await this.findUnsplashImageUrls(query, limit);
+    if (unsplashImages.length > 0) return unsplashImages;
+
+    return [
+      {
+        url: FlashcardImageService.DEFAULT_FLASHCARD_IMAGE_URL,
+        source: 'default',
+        description: 'Default FLENVN image',
+        author: 'FLENVN',
+      },
+    ];
   }
 
   private async findPexelsImageUrls(
