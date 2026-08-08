@@ -17,12 +17,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy over SSH
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build API
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare SSH
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
         run: |
           set -euo pipefail
 
@@ -32,13 +44,36 @@ jobs:
           chmod 600 ~/.ssh/ec2_key
           ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
+      - name: Upload build artifact
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
+        run: |
+          set -euo pipefail
+
+          tar -czf flenvn-api.tar.gz \
+            dist \
+            package.json \
+            package-lock.json \
+            ecosystem.config.cjs
+
+          ssh -i ~/.ssh/ec2_key "$EC2_USER@$EC2_HOST" "mkdir -p '$EC2_APP_DIR'"
+          scp -i ~/.ssh/ec2_key flenvn-api.tar.gz "$EC2_USER@$EC2_HOST:$EC2_APP_DIR/flenvn-api.tar.gz"
+
+      - name: Restart API on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
+        run: |
+          set -euo pipefail
+
           ssh -i ~/.ssh/ec2_key "$EC2_USER@$EC2_HOST" << EOF
             set -euo pipefail
             cd "$EC2_APP_DIR"
-            git fetch origin main
-            git reset --hard origin/main
-            npm ci
-            npm run build
+            tar -xzf flenvn-api.tar.gz
+            npm ci --omit=dev --no-audit --no-fund
             pm2 startOrReload ecosystem.config.cjs --env production
             pm2 save
           EOF
