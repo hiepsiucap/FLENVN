@@ -384,12 +384,8 @@ export class WordsService {
     ]);
 
     const suggestions = definitions.map((definition, index) => {
-      const example =
-        finalExamples.find(
-          (candidate) =>
-            candidate.partOfSpeech &&
-            candidate.partOfSpeech === definition.partOfSpeech,
-        ) || finalExamples[index];
+      // Dictionary and generated examples follow the definition order.
+      const example = finalExamples[index];
       const exampleIndex = example ? finalExamples.indexOf(example) : -1;
 
       return {
