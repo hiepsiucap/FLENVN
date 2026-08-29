@@ -857,7 +857,7 @@ export class WordsService {
           max_output_tokens: 120,
           reasoning: { effort: 'minimal' },
           instructions:
-            'Translate the word meaning into the target language. Return only valid JSON. Return a short natural translation, not a translation of the definition sentence.',
+            'You are a bilingual vocabulary dictionary. Translate the English WORD into the target language for the specified part of speech and context. Return only valid JSON with a short translation of 1 to 4 words. Never translate or repeat the definition sentence. Example: book + noun means "sách"; book + verb means "đặt trước".',
           input: JSON.stringify({
             word,
             partOfSpeech: definition.partOfSpeech,
