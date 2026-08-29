@@ -121,7 +121,6 @@ export interface WordSuggestionResponse {
 
 export interface WordLearningCombo {
   definition: DefinitionSuggestion;
-  definitionTranslation?: string;
   translation?: string;
   example?: ExampleSuggestion;
 }
@@ -376,7 +375,7 @@ export class WordsService {
       this.translateSafely(word, targetLanguage),
       Promise.all(
         definitions.map((definition) =>
-          this.translateSafely(definition.text, targetLanguage),
+          this.translateDefinitionWithOpenAi(word, definition, targetLanguage),
         ),
       ),
       this.translateExamples(finalExamples, targetLanguage),
@@ -395,8 +394,6 @@ export class WordsService {
 
       return {
         definition,
-        definitionTranslation: definitionTranslations[index],
-        // Keep the legacy field, but make it meaning-specific inside a combo.
         translation: definitionTranslations[index],
         example: example
           ? { ...example, translation: translatedExamples[exampleIndex] }
@@ -833,6 +830,56 @@ export class WordsService {
         }`,
       );
       return undefined;
+    }
+  }
+
+  private async translateDefinitionWithOpenAi(
+    word: string,
+    definition: DefinitionSuggestion,
+    targetLanguage: string,
+  ): Promise<string | undefined> {
+    const apiKey = this.configService.get<string>('services.openai.apiKey');
+    if (!apiKey) return this.translateSafely(definition.text, targetLanguage);
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.configService.get<string>(
+            'services.openai.model',
+            'gpt-5-nano',
+          ),
+          store: false,
+          max_output_tokens: 120,
+          reasoning: { effort: 'minimal' },
+          instructions:
+            'Translate the word meaning into the target language. Return only valid JSON. Return a short natural translation, not a translation of the definition sentence.',
+          input: JSON.stringify({
+            word,
+            partOfSpeech: definition.partOfSpeech,
+            definition: definition.text,
+            targetLanguage,
+          }),
+          text: { format: { type: 'json_object' } },
+        }),
+      });
+
+      if (!response.ok)
+        return this.translateSafely(definition.text, targetLanguage);
+      const data = (await response.json()) as OpenAiResponse;
+      const output = this.extractOpenAiOutputText(data);
+      if (!output) return this.translateSafely(definition.text, targetLanguage);
+      const parsed = JSON.parse(output) as { translation?: string };
+      return parsed.translation?.trim() || undefined;
+    } catch (error) {
+      this.logger.warn(
+        `Meaning translation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      return this.translateSafely(definition.text, targetLanguage);
     }
   }
 
