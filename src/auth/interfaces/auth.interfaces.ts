@@ -37,6 +37,6 @@ export interface LoginResponse {
   refreshToken: string;
 }
 
-export interface RegisterResponse extends LoginResponse {
-  emailVerificationRequired: boolean;
+export interface RegisterResponse {
+  message: string;
 }

@@ -140,6 +140,21 @@ export class UsersService {
     return { message: 'User deleted successfully' };
   }
 
+  async verifyEmailById(id: string): Promise<SanitizedUser> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.isEmailVerified = true;
+    user.isActive = true;
+    const updatedUser = await this.userRepository.save(user);
+    return this.sanitizeUser(updatedUser);
+  }
+
   async recordProgress(userId: string, score: number): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id: userId },

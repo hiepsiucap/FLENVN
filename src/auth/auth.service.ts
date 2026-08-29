@@ -56,6 +56,7 @@ export class AuthService {
       password: hashedPassword,
       username,
       avatar: User.DEFAULT_AVATAR_URL,
+      isActive: false,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -65,16 +66,9 @@ export class AuthService {
 
     await this.tokenService.createEmailVerificationToken(savedUser.id);
 
-    // Generate tokens
-    const { accessToken, refreshToken } = await this.generateTokens(
-      savedUser.id,
-    );
-
     return {
-      user: this.sanitizeUser(savedUser),
-      accessToken,
-      refreshToken: refreshToken.token,
-      emailVerificationRequired: true,
+      message:
+        'Registration successful. Your account is pending admin approval.',
     };
   }
 
@@ -98,7 +92,7 @@ export class AuthService {
 
     // Check if user is active
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is disabled');
+      throw new UnauthorizedException('Account is pending admin approval');
     }
 
     if (!user.isEmailVerified) {
