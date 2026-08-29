@@ -107,6 +107,7 @@ export interface WordSuggestionResponse {
   definitions: DefinitionSuggestion[];
   translation?: string;
   examples: ExampleSuggestion[];
+  suggestions: WordLearningCombo[];
   audio?: AudioSuggestion;
   images: FlashcardImageSuggestion[];
   sources: {
@@ -116,6 +117,12 @@ export interface WordSuggestionResponse {
     examples?: string;
     images: Array<'pexels' | 'unsplash' | 'default'>;
   };
+}
+
+export interface WordLearningCombo {
+  definition: DefinitionSuggestion;
+  translation?: string;
+  example?: ExampleSuggestion;
 }
 
 export interface WordAutocompleteResponse {
@@ -366,6 +373,24 @@ export class WordsService {
         this.flashcardImageService.findImageUrls(word, imageLimit),
       ]);
 
+    const suggestions = definitions.map((definition, index) => {
+      const example =
+        finalExamples.find(
+          (candidate) =>
+            candidate.partOfSpeech &&
+            candidate.partOfSpeech === definition.partOfSpeech,
+        ) || finalExamples[index];
+      const exampleIndex = example ? finalExamples.indexOf(example) : -1;
+
+      return {
+        definition,
+        translation,
+        example: example
+          ? { ...example, translation: translatedExamples[exampleIndex] }
+          : undefined,
+      };
+    });
+
     return {
       word,
       pronunciation,
@@ -379,6 +404,7 @@ export class WordsService {
         source: example.source,
         translation: translatedExamples[index],
       })),
+      suggestions,
       audio: this.buildAudioSuggestion(audioUrl, dictionaryAudioUrl),
       images,
       sources: this.buildSources(
@@ -554,8 +580,7 @@ export class WordsService {
             {
               word: 'reservation',
               partOfSpeech: 'noun',
-              definition:
-                'An arrangement to keep something for later use.',
+              definition: 'An arrangement to keep something for later use.',
               translation: 'target-language translation',
               example: 'I made a reservation for two people.',
               exampleTranslation: 'target-language example translation',
@@ -642,8 +667,7 @@ export class WordsService {
         definition: suggestion.definition?.trim() || undefined,
         translation: suggestion.translation?.trim() || undefined,
         example: suggestion.example?.trim() || undefined,
-        exampleTranslation:
-          suggestion.exampleTranslation?.trim() || undefined,
+        exampleTranslation: suggestion.exampleTranslation?.trim() || undefined,
         difficulty: this.normalizeTopicVocabularyLevel(
           suggestion.difficulty,
           defaultLevel,
@@ -665,7 +689,9 @@ export class WordsService {
       : fallback;
   }
 
-  private extractOpenAiOutputText(response: OpenAiResponse): string | undefined {
+  private extractOpenAiOutputText(
+    response: OpenAiResponse,
+  ): string | undefined {
     if (response.output_text) return response.output_text;
 
     return response.output
