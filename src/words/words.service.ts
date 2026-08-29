@@ -396,7 +396,8 @@ export class WordsService {
       return {
         definition,
         definitionTranslation: definitionTranslations[index],
-        translation,
+        // Keep the legacy field, but make it meaning-specific inside a combo.
+        translation: definitionTranslations[index],
         example: example
           ? { ...example, translation: translatedExamples[exampleIndex] }
           : undefined,
