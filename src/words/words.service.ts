@@ -839,7 +839,7 @@ export class WordsService {
     targetLanguage: string,
   ): Promise<string | undefined> {
     const apiKey = this.configService.get<string>('services.openai.apiKey');
-    if (!apiKey) return this.translateSafely(definition.text, targetLanguage);
+    if (!apiKey) return undefined;
 
     try {
       const response = await fetch('https://api.openai.com/v1/responses', {
@@ -864,22 +864,36 @@ export class WordsService {
             definition: definition.text,
             targetLanguage,
           }),
-          text: { format: { type: 'json_object' } },
+          text: {
+            format: {
+              type: 'json_schema',
+              name: 'word_translation',
+              strict: true,
+              schema: {
+                type: 'object',
+                properties: { wordTranslation: { type: 'string' } },
+                required: ['wordTranslation'],
+                additionalProperties: false,
+              },
+            },
+          },
         }),
       });
 
-      if (!response.ok)
-        return this.translateSafely(definition.text, targetLanguage);
+      if (!response.ok) return undefined;
       const data = (await response.json()) as OpenAiResponse;
       const output = this.extractOpenAiOutputText(data);
-      if (!output) return this.translateSafely(definition.text, targetLanguage);
-      const parsed = JSON.parse(output) as { translation?: string };
-      return parsed.translation?.trim() || undefined;
+      if (!output) return undefined;
+      const parsed = JSON.parse(output) as { wordTranslation?: string };
+      const translation = parsed.wordTranslation?.trim();
+      return translation && translation.split(/\s+/).length <= 4
+        ? translation
+        : undefined;
     } catch (error) {
       this.logger.warn(
         `Meaning translation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
-      return this.translateSafely(definition.text, targetLanguage);
+      return undefined;
     }
   }
 
