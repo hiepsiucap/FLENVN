@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BookBackgroundService } from './book-background.service';
 import { Book } from './book.entity';
 import { BooksService } from './books.service';
 import { BooksController } from './books.controller';
@@ -13,7 +14,7 @@ import { UploadsModule } from '../uploads/uploads.module';
     UploadsModule,
   ],
   controllers: [BooksController],
-  providers: [BooksService],
+  providers: [BooksService, BookBackgroundService],
   exports: [BooksService],
 })
 export class BooksModule {}

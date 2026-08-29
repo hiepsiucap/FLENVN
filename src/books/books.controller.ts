@@ -17,8 +17,10 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { BookBackgroundService } from './book-background.service';
 import { BooksService } from './books.service';
 import { CreateBookDto } from './dto/create-book.dto';
+import { GenerateBookBackgroundDto } from './dto/generate-book-background.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../auth/interfaces/authenticated-request.interface';
@@ -31,6 +33,7 @@ export class BooksController {
   constructor(
     private readonly booksService: BooksService,
     private readonly uploadsService: UploadsService,
+    private readonly bookBackgroundService: BookBackgroundService,
   ) {}
 
   @Post()
@@ -138,6 +141,20 @@ export class BooksController {
         0,
       ),
     };
+  }
+
+  @Post('backgrounds/generate')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async generateBookBackgrounds(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: GenerateBookBackgroundDto,
+  ) {
+    if (!req.user?.id) {
+      throw new Error('User not authenticated');
+    }
+
+    return this.bookBackgroundService.generateBackgrounds(req.user.id, dto);
   }
 
   @Get(':id')

@@ -28,6 +28,7 @@ export default registerAs('services', () => ({
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
     model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+    imageModel: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
     maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '1000', 10),
     temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7'),
   },

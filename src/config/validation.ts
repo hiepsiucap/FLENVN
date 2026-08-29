@@ -66,6 +66,7 @@ export const validationSchema = Joi.object({
   // OpenAI Configuration
   OPENAI_API_KEY: Joi.string().allow('').optional(),
   OPENAI_MODEL: Joi.string().default('gpt-3.5-turbo'),
+  OPENAI_IMAGE_MODEL: Joi.string().default('gpt-image-1'),
   OPENAI_MAX_TOKENS: Joi.number().default(1000),
   OPENAI_TEMPERATURE: Joi.number().min(0).max(2).default(0.7),
 
