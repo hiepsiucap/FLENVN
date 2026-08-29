@@ -720,7 +720,7 @@ export class WordsService {
   private extractDefinitions(
     items: DictionaryResponseItem[],
   ): DefinitionSuggestion[] {
-    return items
+    const definitions = items
       .flatMap((item) => item.meanings || [])
       .flatMap((meaning) =>
         (meaning.definitions || []).reduce<DefinitionSuggestion[]>(
@@ -735,8 +735,23 @@ export class WordsService {
           },
           [],
         ),
-      )
-      .slice(0, 5);
+      );
+    // Put different parts of speech first, then fill remaining slots.
+    const prioritized: DefinitionSuggestion[] = [];
+    const remaining: DefinitionSuggestion[] = [];
+    const seenPartsOfSpeech = new Set<string>();
+
+    for (const definition of definitions) {
+      const partOfSpeech = definition.partOfSpeech?.toLowerCase();
+      if (partOfSpeech && !seenPartsOfSpeech.has(partOfSpeech)) {
+        seenPartsOfSpeech.add(partOfSpeech);
+        prioritized.push(definition);
+      } else {
+        remaining.push(definition);
+      }
+    }
+
+    return [...prioritized, ...remaining].slice(0, 5);
   }
 
   private extractExamples(
