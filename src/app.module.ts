@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -61,6 +62,7 @@ import { WordsModule } from './words/words.module';
     TranslateModule,
     UploadsModule,
     WordsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [
