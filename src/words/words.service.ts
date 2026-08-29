@@ -373,11 +373,7 @@ export class WordsService {
       images,
     ] = await Promise.all([
       this.translateSafely(word, targetLanguage),
-      Promise.all(
-        definitions.map((definition) =>
-          this.translateDefinitionWithOpenAi(word, definition, targetLanguage),
-        ),
-      ),
+      this.translateDefinitionsWithOpenAi(word, definitions, targetLanguage),
       this.translateExamples(finalExamples, targetLanguage),
       this.flashcardAudioService.createAudioUrl(userId, word),
       this.flashcardImageService.findImageUrls(word, imageLimit),
@@ -829,13 +825,13 @@ export class WordsService {
     }
   }
 
-  private async translateDefinitionWithOpenAi(
+  private async translateDefinitionsWithOpenAi(
     word: string,
-    definition: DefinitionSuggestion,
+    definitions: DefinitionSuggestion[],
     targetLanguage: string,
-  ): Promise<string | undefined> {
+  ): Promise<Array<string | undefined>> {
     const apiKey = this.configService.get<string>('services.openai.apiKey');
-    if (!apiKey) return undefined;
+    if (!apiKey) return definitions.map(() => undefined);
 
     try {
       const response = await fetch('https://api.openai.com/v1/responses', {
@@ -856,8 +852,11 @@ export class WordsService {
             'You are a bilingual vocabulary dictionary. Translate the English WORD into the target language for the specified part of speech and context. Return only valid JSON with a short translation of 1 to 4 words. Never translate or repeat the definition sentence. Example: book + noun means "sách"; book + verb means "đặt trước".',
           input: JSON.stringify({
             word,
-            partOfSpeech: definition.partOfSpeech,
-            definition: definition.text,
+            meanings: definitions.map((item, index) => ({
+              index,
+              partOfSpeech: item.partOfSpeech,
+              definition: item.text,
+            })),
             targetLanguage,
           }),
           text: {
@@ -867,8 +866,13 @@ export class WordsService {
               strict: true,
               schema: {
                 type: 'object',
-                properties: { wordTranslation: { type: 'string' } },
-                required: ['wordTranslation'],
+                properties: {
+                  translations: {
+                    type: 'array',
+                    items: { type: 'string' },
+                  },
+                },
+                required: ['translations'],
                 additionalProperties: false,
               },
             },
@@ -876,20 +880,22 @@ export class WordsService {
         }),
       });
 
-      if (!response.ok) return undefined;
+      if (!response.ok) return definitions.map(() => undefined);
       const data = (await response.json()) as OpenAiResponse;
       const output = this.extractOpenAiOutputText(data);
-      if (!output) return undefined;
-      const parsed = JSON.parse(output) as { wordTranslation?: string };
-      const translation = parsed.wordTranslation?.trim();
-      return translation && translation.split(/\s+/).length <= 4
-        ? translation
-        : undefined;
+      if (!output) return definitions.map(() => undefined);
+      const parsed = JSON.parse(output) as { translations?: string[] };
+      return definitions.map((_, index) => {
+        const translation = parsed.translations?.[index]?.trim();
+        return translation && translation.split(/\s+/).length <= 4
+          ? translation
+          : undefined;
+      });
     } catch (error) {
       this.logger.warn(
         `Meaning translation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
-      return undefined;
+      return definitions.map(() => undefined);
     }
   }
 
