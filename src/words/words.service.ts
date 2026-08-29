@@ -121,6 +121,7 @@ export interface WordSuggestionResponse {
 
 export interface WordLearningCombo {
   definition: DefinitionSuggestion;
+  definitionTranslation?: string;
   translation?: string;
   example?: ExampleSuggestion;
 }
@@ -365,13 +366,23 @@ export class WordsService {
     const finalExamples =
       examples.length > 0 ? examples : dictionaryExamples.slice(0, 4);
 
-    const [translation, translatedExamples, audioUrl, images] =
-      await Promise.all([
-        this.translateSafely(word, targetLanguage),
-        this.translateExamples(finalExamples, targetLanguage),
-        this.flashcardAudioService.createAudioUrl(userId, word),
-        this.flashcardImageService.findImageUrls(word, imageLimit),
-      ]);
+    const [
+      translation,
+      definitionTranslations,
+      translatedExamples,
+      audioUrl,
+      images,
+    ] = await Promise.all([
+      this.translateSafely(word, targetLanguage),
+      Promise.all(
+        definitions.map((definition) =>
+          this.translateSafely(definition.text, targetLanguage),
+        ),
+      ),
+      this.translateExamples(finalExamples, targetLanguage),
+      this.flashcardAudioService.createAudioUrl(userId, word),
+      this.flashcardImageService.findImageUrls(word, imageLimit),
+    ]);
 
     const suggestions = definitions.map((definition, index) => {
       const example =
@@ -384,6 +395,7 @@ export class WordsService {
 
       return {
         definition,
+        definitionTranslation: definitionTranslations[index],
         translation,
         example: example
           ? { ...example, translation: translatedExamples[exampleIndex] }
