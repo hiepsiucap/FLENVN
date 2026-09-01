@@ -23,6 +23,7 @@ import {
 import { Token, TokenType } from './token.entity';
 import { TokenService } from './token.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { getUserRank } from '../users/user-rank';
 
 @Injectable()
 export class AuthService {
@@ -202,7 +203,10 @@ export class AuthService {
       passwordResetExpires,
       ...sanitizedUser
     } = user;
-    return sanitizedUser;
+    return {
+      ...sanitizedUser,
+      rank: getUserRank(user.level),
+    };
   }
 
   private toAuthUser(user: User): AuthUser {
@@ -216,6 +220,7 @@ export class AuthService {
       streak: user.streak,
       lastActive: user.lastActive,
       isAdmin: user.isAdmin,
+      rank: getUserRank(user.level),
     };
   }
 

@@ -1,4 +1,5 @@
 import { User } from 'src/users/user.entity';
+import type { UserRank } from 'src/users/user-rank';
 
 export type SanitizedUser = Omit<
   User,
@@ -6,7 +7,7 @@ export type SanitizedUser = Omit<
   | 'emailVerificationToken'
   | 'passwordResetToken'
   | 'passwordResetExpires'
->;
+> & { rank: UserRank };
 
 export interface AuthUser {
   id: string;
@@ -18,6 +19,7 @@ export interface AuthUser {
   streak: number;
   lastActive: Date | null;
   isAdmin: boolean;
+  rank: UserRank;
 }
 
 export interface JwtPayload {

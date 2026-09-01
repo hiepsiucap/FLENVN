@@ -12,6 +12,7 @@ import { User } from './user.entity';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { SanitizedUser } from '../auth/interfaces/auth.interfaces';
+import { getUserRank } from './user-rank';
 
 @Injectable()
 export class UsersService {
@@ -218,6 +219,9 @@ export class UsersService {
       passwordResetExpires,
       ...sanitizedUser
     } = user;
-    return sanitizedUser;
+    return {
+      ...sanitizedUser,
+      rank: getUserRank(user.level),
+    };
   }
 }

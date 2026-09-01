@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "bucket": "flenvn",
+  "region": "ap-southeast-1",
+  "prefix": "images/ranks/",
+  "ranks": [
+    {
+      "slug": "rookie",
+      "name": "Rookie",
+      "minLevel": 1,
+      "maxLevel": 4,
+      "imageUrl": "https://flenvn.s3.ap-southeast-1.amazonaws.com/images/ranks/rookie.png"
+    },
+    {
+      "slug": "explorer",
+      "name": "Explorer",
+      "minLevel": 5,
+      "maxLevel": 9,
+      "imageUrl": "https://flenvn.s3.ap-southeast-1.amazonaws.com/images/ranks/explorer.png"
+    },
+    {
+      "slug": "challenger",
+      "name": "Challenger",
+      "minLevel": 10,
+      "maxLevel": 19,
+      "imageUrl": "https://flenvn.s3.ap-southeast-1.amazonaws.com/images/ranks/challenger.png"
+    },
+    {
+      "slug": "achiever",
+      "name": "Achiever",
+      "minLevel": 20,
+      "maxLevel": 34,
+      "imageUrl": "https://flenvn.s3.ap-southeast-1.amazonaws.com/images/ranks/achiever.png"
+    },
+    {
+      "slug": "expert",
+      "name": "Expert",
+      "minLevel": 35,
+      "maxLevel": 49,
+      "imageUrl": "https://flenvn.s3.ap-southeast-1.amazonaws.com/images/ranks/expert.png"
+    },
+    {
+      "slug": "master",
+      "name": "Master",
+      "minLevel": 50,
+      "maxLevel": 69,
+      "imageUrl": "https://flenvn.s3.ap-southeast-1.amazonaws.com/images/ranks/master.png"
+    },
+    {
+      "slug": "grandmaster",
+      "name": "Grandmaster",
+      "minLevel": 70,
+      "maxLevel": 99,
+      "imageUrl": "https://flenvn.s3.ap-southeast-1.amazonaws.com/images/ranks/grandmaster.png"
+    },
+    {
+      "slug": "flen-legend",
+      "name": "FLEN Legend",
+      "minLevel": 100,
+      "maxLevel": null,
+      "imageUrl": "https://flenvn.s3.ap-southeast-1.amazonaws.com/images/ranks/flen-legend.png"
+    }
+  ]
+}

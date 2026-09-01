@@ -17,6 +17,7 @@ import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { User } from '../users/user.entity';
 import type { AuthenticatedRequest } from './interfaces/authenticated-request.interface';
+import { getUserRank } from '../users/user-rank';
 
 @Controller('auth')
 export class AuthController {
@@ -81,6 +82,9 @@ export class AuthController {
       passwordResetExpires,
       ...sanitizedUser
     } = user;
-    return sanitizedUser;
+    return {
+      ...sanitizedUser,
+      rank: getUserRank(user.level),
+    };
   }
 }
