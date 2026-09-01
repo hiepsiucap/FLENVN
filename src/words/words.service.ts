@@ -360,16 +360,40 @@ export class WordsService {
     const targetLanguage = dto.targetLanguage || 'vi';
     const imageLimit = dto.imageLimit || 3;
 
+    // These calls only depend on the request and can run while the dictionary
+    // lookup is in flight.
+    const translationPromise = this.translateSafely(word, targetLanguage);
+    const audioUrlPromise = this.flashcardAudioService.createAudioUrl(
+      userId,
+      word,
+    );
+    const imagesPromise = this.flashcardImageService.findImageUrls(
+      word,
+      imageLimit,
+    );
+
     const dictionaryItems = await this.fetchDictionary(word);
     const definitions = this.extractDefinitions(dictionaryItems);
     const dictionaryExamples = this.extractExamples(dictionaryItems);
     const pronunciation = this.extractPronunciation(dictionaryItems);
     const dictionaryAudioUrl = this.extractDictionaryAudioUrl(dictionaryItems);
+
+    // Both OpenAI calls depend on dictionary definitions, but not on each
+    // other, so start them together.
+    const definitionTranslationsPromise = this.translateDefinitionsWithOpenAi(
+      word,
+      definitions,
+      targetLanguage,
+    );
     const examples =
       (await this.wordsExampleService.generateExamples(word, definitions)) ||
       [];
     const finalExamples =
       examples.length > 0 ? examples : dictionaryExamples.slice(0, 4);
+    const translatedExamplesPromise = this.translateExamples(
+      finalExamples,
+      targetLanguage,
+    );
 
     const [
       translation,
@@ -378,11 +402,11 @@ export class WordsService {
       audioUrl,
       images,
     ] = await Promise.all([
-      this.translateSafely(word, targetLanguage),
-      this.translateDefinitionsWithOpenAi(word, definitions, targetLanguage),
-      this.translateExamples(finalExamples, targetLanguage),
-      this.flashcardAudioService.createAudioUrl(userId, word),
-      this.flashcardImageService.findImageUrls(word, imageLimit),
+      translationPromise,
+      definitionTranslationsPromise,
+      translatedExamplesPromise,
+      audioUrlPromise,
+      imagesPromise,
     ]);
 
     const suggestions = definitions.map((definition, index) => {
@@ -447,8 +471,7 @@ export class WordsService {
       const data = (await response.json()) as unknown;
       return Array.isArray(data) ? (data as DictionaryResponseItem[]) : [];
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.warn(
         error instanceof DOMException && error.name === 'TimeoutError'
           ? `Dictionary lookup timed out after ${this.dictionaryApiTimeoutMs}ms`
