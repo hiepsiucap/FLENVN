@@ -171,6 +171,7 @@ export interface TopicVocabularySuggestionResponse {
 @Injectable()
 export class WordsService {
   private readonly logger = new Logger(WordsService.name);
+  private readonly dictionaryApiTimeoutMs: number;
 
   constructor(
     private readonly configService: ConfigService,
@@ -178,7 +179,12 @@ export class WordsService {
     private readonly flashcardImageService: FlashcardImageService,
     private readonly translateService: TranslateService,
     private readonly wordsExampleService: WordsExampleService,
-  ) {}
+  ) {
+    this.dictionaryApiTimeoutMs = this.configService.get<number>(
+      'DICTIONARY_API_TIMEOUT_MS',
+      3000,
+    );
+  }
 
   async autocompleteWords(
     dto: AutocompleteWordDto,
@@ -428,6 +434,9 @@ export class WordsService {
         `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(
           word,
         )}`,
+        {
+          signal: AbortSignal.timeout(this.dictionaryApiTimeoutMs),
+        },
       );
 
       if (!response.ok) {
@@ -438,10 +447,12 @@ export class WordsService {
       const data = (await response.json()) as unknown;
       return Array.isArray(data) ? (data as DictionaryResponseItem[]) : [];
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown error';
       this.logger.warn(
-        `Dictionary lookup failed: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
+        error instanceof DOMException && error.name === 'TimeoutError'
+          ? `Dictionary lookup timed out after ${this.dictionaryApiTimeoutMs}ms`
+          : `Dictionary lookup failed: ${message}`,
       );
       return [];
     }

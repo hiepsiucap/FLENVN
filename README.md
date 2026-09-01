@@ -57,6 +57,52 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## Grafana Cloud tracing
+
+The API is instrumented with OpenTelemetry for NestJS/Express HTTP traffic,
+outbound requests, and supported database clients. Tracing is opt-in and starts
+when `OTEL_EXPORTER_OTLP_ENDPOINT` or
+`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is present.
+
+1. In your Grafana Cloud stack, open the **OpenTelemetry** card and copy the
+   OTLP endpoint and instance ID.
+2. Create a Cloud Access Policy token with the `traces:write` scope.
+3. Base64-encode `<instance-id>:<token>`. In PowerShell:
+
+```powershell
+[Convert]::ToBase64String(
+  [Text.Encoding]::UTF8.GetBytes('<instance-id>:<token>')
+)
+```
+
+4. Add these values to `.env` locally or to the deployment secret store:
+
+```dotenv
+OTEL_EXPORTER_OTLP_ENDPOINT=https://<your-stack-otlp-endpoint>
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64-value>
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_SERVICE_NAME=flenvn-api
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,service.version=0.0.1
+OTEL_NODE_ENABLED_INSTRUMENTATIONS=http,express,nestjs-core,undici,aws-sdk,pg
+OTEL_NODE_RESOURCE_DETECTORS=env,host,os,process,serviceinstance
+```
+
+The configured instrumentation covers the API-call sites currently in this
+repository:
+
+- Node `fetch()` calls to OpenAI, LanguageTool, Pexels, Unsplash, and remote
+  media URLs (`undici` instrumentation)
+- AWS SDK calls to Translate, Polly, and S3 (`aws-sdk` instrumentation)
+- PostgreSQL operations made through TypeORM (`pg` instrumentation)
+
+Request/response bodies, authorization headers, and API keys are not captured
+by this configuration.
+
+After restarting the API and sending it a request, open **Drilldown > Traces**
+in Grafana Cloud and filter by `service.name = flenvn-api`. Use
+`OTEL_LOG_LEVEL=debug` temporarily if exports need troubleshooting; it is very
+verbose and should not remain enabled in production.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

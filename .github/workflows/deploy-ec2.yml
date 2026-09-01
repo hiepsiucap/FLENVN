@@ -54,6 +54,7 @@ jobs:
 
           tar -czf flenvn-api.tar.gz \
             dist \
+            scripts/register-tracing.cjs \
             package.json \
             package-lock.json \
             ecosystem.config.cjs

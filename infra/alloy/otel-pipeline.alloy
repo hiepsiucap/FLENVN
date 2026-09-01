@@ -1,0 +1,69 @@
+// Receive OTLP only from applications running on this host.
+otelcol.receiver.otlp "flenvn" {
+  grpc {
+    endpoint = "127.0.0.1:4317"
+  }
+
+  http {
+    endpoint = "127.0.0.1:4318"
+  }
+
+  output {
+    traces = [otelcol.processor.transform.flenvn_span_privacy.input]
+  }
+}
+
+otelcol.processor.transform "flenvn_span_privacy" {
+  error_mode = "ignore"
+
+  trace_statements {
+    context = "span"
+    statements = [
+      "delete_key(attributes, \"aws.request.extended_id\")",
+      "delete_key(attributes, \"client.address\")",
+      "delete_key(attributes, \"db.query.text\")",
+      "delete_key(attributes, \"network.peer.address\")",
+      "delete_key(attributes, \"url.full\")",
+      "delete_key(attributes, \"url.query\")",
+    ]
+  }
+
+  output {
+    traces = [otelcol.processor.transform.flenvn_resource_privacy.input]
+  }
+}
+
+otelcol.processor.transform "flenvn_resource_privacy" {
+  error_mode = "ignore"
+
+  trace_statements {
+    context = "resource"
+    statements = [
+      "delete_key(attributes, \"process.command_args\")",
+      "delete_key(attributes, \"process.executable.path\")",
+      "delete_key(attributes, \"process.pid\")",
+    ]
+  }
+
+  output {
+    traces = [otelcol.processor.batch.flenvn.input]
+  }
+}
+
+otelcol.processor.batch "flenvn" {
+  output {
+    traces = [otelcol.exporter.otlphttp.grafana_cloud.input]
+  }
+}
+
+otelcol.exporter.otlphttp "grafana_cloud" {
+  client {
+    endpoint = sys.env("OTLP_ENDPOINT")
+    auth     = otelcol.auth.basic.grafana_cloud.handler
+  }
+}
+
+otelcol.auth.basic "grafana_cloud" {
+  username = sys.env("OTLP_USERNAME")
+  password = sys.env("GCLOUD_RW_API_KEY")
+}

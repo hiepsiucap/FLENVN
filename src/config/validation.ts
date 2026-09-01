@@ -13,6 +13,11 @@ export const validationSchema = Joi.object({
   MAX_FILE_SIZE: Joi.number().default(5242880), // 5MB
   DEFAULT_PAGE_LIMIT: Joi.number().default(20),
   MAX_PAGE_LIMIT: Joi.number().default(100),
+  DICTIONARY_API_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(250)
+    .max(30000)
+    .default(3000),
 
   // Database Configuration
   DB_HOST: Joi.string().required(),
