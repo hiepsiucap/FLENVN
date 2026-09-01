@@ -13,6 +13,7 @@ import { CreateSessionDto } from './dto/create-session.dto';
 import { PracticeGameResult } from './practice-game-result.entity';
 import { PracticeSession } from './practice-session.entity';
 import { Session, SessionResult, SessionType } from './session.entity';
+import { normalizeSessionScore } from './session-score';
 
 @Injectable()
 export class SessionsService {
@@ -39,9 +40,10 @@ export class SessionsService {
         ...createSessionDto,
         userId,
         flashcardId,
-        score:
-          createSessionDto.score ??
-          this.calculateDefaultSessionScore(createSessionDto.result),
+        score: normalizeSessionScore(
+          createSessionDto.result,
+          createSessionDto.score,
+        ),
       }),
     );
     await this.usersService.recordProgress(userId, savedSession.score);
@@ -86,23 +88,23 @@ export class SessionsService {
           ...game,
         })),
     );
-    const correctGames = flattenedGames.filter(
+    const scoredGames = flattenedGames.map((game) => ({
+      ...game,
+      score: normalizeSessionScore(game.result, game.score),
+    }));
+    const correctGames = scoredGames.filter(
       (game) => game.result === SessionResult.CORRECT,
     ).length;
-    const incorrectGames = flattenedGames.filter(
+    const incorrectGames = scoredGames.filter(
       (game) => game.result === SessionResult.INCORRECT,
     ).length;
-    const skippedGames = flattenedGames.filter(
+    const skippedGames = scoredGames.filter(
       (game) => game.result === SessionResult.SKIPPED,
     ).length;
-    const score = flattenedGames.reduce(
-      (total, game) =>
-        total + (game.score ?? this.calculateDefaultSessionScore(game.result)),
-      0,
-    );
+    const score = scoredGames.reduce((total, game) => total + game.score, 0);
     const accuracy =
-      flattenedGames.length > 0
-        ? Math.round((correctGames / flattenedGames.length) * 10000) / 100
+      scoredGames.length > 0
+        ? Math.round((correctGames / scoredGames.length) * 10000) / 100
         : 0;
 
     const practiceSession = await this.practiceSessionRepository.save(
@@ -110,7 +112,7 @@ export class SessionsService {
         userId,
         bookId: createPracticeSessionDto.bookId || null,
         totalFlashcards: createPracticeSessionDto.flashcards.length,
-        totalGames: flattenedGames.length,
+        totalGames: scoredGames.length,
         correctGames,
         incorrectGames,
         skippedGames,
@@ -120,14 +122,14 @@ export class SessionsService {
       }),
     );
 
-    const gameResults = flattenedGames.map((game) =>
+    const gameResults = scoredGames.map((game) =>
       this.practiceGameResultRepository.create({
         practiceSessionId: practiceSession.id,
         flashcardId: game.flashcardId,
         gameType: game.gameType,
         result: game.result,
         responseTime: game.responseTime ?? null,
-        score: game.score ?? this.calculateDefaultSessionScore(game.result),
+        score: game.score,
       }),
     );
 
@@ -263,7 +265,10 @@ export class SessionsService {
     });
 
     practiceSessions.forEach((practiceSession) => {
-      const stats = this.getDailyStats(dailyStatsMap, practiceSession.createdAt);
+      const stats = this.getDailyStats(
+        dailyStatsMap,
+        practiceSession.createdAt,
+      );
       stats.sessions++;
       stats.correct += practiceSession.correctGames;
       stats.incorrect += practiceSession.incorrectGames;
@@ -375,10 +380,6 @@ export class SessionsService {
     };
     dailyStatsMap.set(dateKey, stats);
     return stats;
-  }
-
-  private calculateDefaultSessionScore(result: SessionResult): number {
-    return result === SessionResult.CORRECT ? 10 : 0;
   }
 
   private calculateLongestStreak(studyDates: Date[]): number {

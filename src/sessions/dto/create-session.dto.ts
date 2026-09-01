@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, Max, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SessionType, SessionResult } from '../session.entity';
 
@@ -16,9 +16,11 @@ export class CreateSessionDto {
   @IsNumber()
   responseTime?: number;
 
-  @ApiPropertyOptional({ example: 10 })
+  @ApiPropertyOptional({ example: 10, minimum: 0, maximum: 100 })
   @IsOptional()
   @IsNumber()
+  @Min(0)
+  @Max(100)
   score?: number;
 
   @ApiPropertyOptional({ readOnly: true, description: 'Set from route param' })

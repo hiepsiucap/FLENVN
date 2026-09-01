@@ -29,9 +29,11 @@ export class PracticeGameResultDto {
   @Min(0)
   responseTime?: number;
 
-  @ApiPropertyOptional({ example: 10 })
+  @ApiPropertyOptional({ example: 10, minimum: 0, maximum: 100 })
   @IsOptional()
   @IsInt()
+  @Min(0)
+  @Max(100)
   score?: number;
 }
 
