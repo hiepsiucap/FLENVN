@@ -27,7 +27,7 @@ describe('WordsService', () => {
     global.fetch = jest.fn((_input, init) => {
       return new Promise<Response>((_resolve, reject) => {
         const signal = init?.signal;
-        signal?.addEventListener('abort', () => reject(signal.reason), {
+        signal?.addEventListener('abort', () => reject(new Error('aborted')), {
           once: true,
         });
       });
@@ -36,14 +36,16 @@ describe('WordsService', () => {
     await expect(service['fetchDictionary']('dalliance')).resolves.toEqual([]);
     expect(global.fetch).toHaveBeenCalledWith(
       'https://api.dictionaryapi.dev/api/v2/entries/en/dalliance',
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal) as AbortSignal,
+      }),
     );
   });
 
-  it('starts independent work and definition translation without waiting for examples', async () => {
-    let resolveExamples!: (examples: never[]) => void;
-    const examplesPromise = new Promise<never[]>((resolve) => {
-      resolveExamples = resolve;
+  it('starts OpenAI without waiting for Dictionary and preserves the response shape', async () => {
+    let resolveDictionary!: (items: never[]) => void;
+    const dictionaryPromise = new Promise<never[]>((resolve) => {
+      resolveDictionary = resolve;
     });
 
     const audioService = {
@@ -53,7 +55,15 @@ describe('WordsService', () => {
       findImageUrls: jest.fn().mockResolvedValue([]),
     };
     const exampleService = {
-      generateExamples: jest.fn().mockReturnValue(examplesPromise),
+      generateSuggestions: jest.fn().mockResolvedValue([
+        {
+          partOfSpeech: 'verb',
+          definition: 'To examine something.',
+          translation: 'kiem tra',
+          example: 'Please check the answer.',
+          exampleTranslation: 'Vui long kiem tra cau tra loi.',
+        },
+      ]),
     };
     const service = new WordsService(
       {
@@ -70,25 +80,12 @@ describe('WordsService', () => {
         text: string,
         targetLanguage: string,
       ) => Promise<string | undefined>;
-      translateDefinitionsWithOpenAi: (
-        word: string,
-        definitions: never[],
-        targetLanguage: string,
-      ) => Promise<string[]>;
-      translateExamples: (
-        examples: never[],
-        targetLanguage: string,
-      ) => Promise<string[]>;
     };
 
-    jest.spyOn(internals, 'fetchDictionary').mockResolvedValue([]);
+    jest.spyOn(internals, 'fetchDictionary').mockReturnValue(dictionaryPromise);
     const wordTranslationSpy = jest
       .spyOn(internals, 'translateSafely')
-      .mockResolvedValue('kiểm tra');
-    const definitionTranslationSpy = jest
-      .spyOn(internals, 'translateDefinitionsWithOpenAi')
-      .mockResolvedValue([]);
-    jest.spyOn(internals, 'translateExamples').mockResolvedValue([]);
+      .mockResolvedValue('kiem tra');
 
     const resultPromise = service.suggestWord('user-id', {
       word: 'test',
@@ -102,12 +99,32 @@ describe('WordsService', () => {
     expect(wordTranslationSpy).toHaveBeenCalled();
     expect(audioService.createAudioUrl).toHaveBeenCalled();
     expect(imageService.findImageUrls).toHaveBeenCalled();
-    expect(exampleService.generateExamples).toHaveBeenCalled();
-    expect(definitionTranslationSpy).toHaveBeenCalled();
+    expect(exampleService.generateSuggestions).toHaveBeenCalledWith(
+      'test',
+      'vi',
+    );
 
-    resolveExamples([]);
+    resolveDictionary([]);
     await expect(resultPromise).resolves.toEqual(
-      expect.objectContaining({ word: 'test' }),
+      expect.objectContaining({
+        word: 'test',
+        definitions: [{ text: 'To examine something.', partOfSpeech: 'verb' }],
+        examples: [
+          expect.objectContaining({
+            text: 'Please check the answer.',
+            translation: 'Vui long kiem tra cau tra loi.',
+          }),
+        ],
+        suggestions: [
+          expect.objectContaining({
+            translation: 'kiem tra',
+            definition: {
+              text: 'To examine something.',
+              partOfSpeech: 'verb',
+            },
+          }),
+        ],
+      }),
     );
   });
 });

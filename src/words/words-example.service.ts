@@ -1,15 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { DefinitionSuggestion, ExampleSuggestion } from './words.service';
 
-interface OpenAiExample {
-  text?: string;
-  meaning?: string | null;
-  partOfSpeech?: string | null;
+export interface OpenAiWordSuggestion {
+  partOfSpeech: string;
+  definition: string;
+  translation: string;
+  example: string;
+  exampleTranslation: string;
 }
 
-interface OpenAiExampleResponse {
-  examples?: Array<OpenAiExample | string>;
+interface OpenAiWordSuggestionResponse {
+  suggestions?: Array<Partial<OpenAiWordSuggestion>>;
 }
 
 interface OpenAiResponse {
@@ -31,10 +32,10 @@ export class WordsExampleService {
 
   constructor(private readonly configService: ConfigService) {}
 
-  async generateExamples(
+  async generateSuggestions(
     word: string,
-    definitions: DefinitionSuggestion[],
-  ): Promise<ExampleSuggestion[]> {
+    targetLanguage: string,
+  ): Promise<OpenAiWordSuggestion[]> {
     const apiKey = this.configService.get<string>('services.openai.apiKey');
     if (!apiKey) return [];
 
@@ -45,12 +46,12 @@ export class WordsExampleService {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(this.buildRequestBody(word, definitions)),
+        body: JSON.stringify(this.buildRequestBody(word, targetLanguage)),
       });
 
       if (!response.ok) {
         this.logger.warn(
-          `OpenAI example generation failed: ${response.status}`,
+          `OpenAI word suggestion generation failed: ${response.status}`,
         );
         return [];
       }
@@ -58,7 +59,7 @@ export class WordsExampleService {
       const data = (await response.json()) as OpenAiResponse;
       if (data.status === 'incomplete') {
         this.logger.warn(
-          `OpenAI example generation incomplete: ${
+          `OpenAI word suggestion generation incomplete: ${
             data.incomplete_details?.reason || 'unknown reason'
           }`,
         );
@@ -68,29 +69,29 @@ export class WordsExampleService {
       const text = this.extractOutputText(data);
       if (!text) return [];
 
-      const parsed = JSON.parse(text) as OpenAiExampleResponse;
+      const parsed = JSON.parse(text) as OpenAiWordSuggestionResponse;
 
-      return (parsed.examples || [])
-        .map((example) =>
-          typeof example === 'string'
-            ? {
-                text: example,
-              }
-            : example,
+      return (parsed.suggestions || [])
+        .filter((suggestion): suggestion is OpenAiWordSuggestion =>
+          Boolean(
+            suggestion.partOfSpeech?.trim() &&
+            suggestion.definition?.trim() &&
+            suggestion.translation?.trim() &&
+            suggestion.example?.trim() &&
+            suggestion.exampleTranslation?.trim(),
+          ),
         )
-        .filter((example): example is OpenAiExample & { text: string } =>
-          Boolean(example.text),
-        )
-        .slice(0, 4)
-        .map((example) => ({
-          text: example.text,
-          meaning: example.meaning || undefined,
-          partOfSpeech: example.partOfSpeech || undefined,
-          source: 'openai',
+        .slice(0, 5)
+        .map((suggestion) => ({
+          partOfSpeech: suggestion.partOfSpeech.trim(),
+          definition: suggestion.definition.trim(),
+          translation: suggestion.translation.trim(),
+          example: suggestion.example.trim(),
+          exampleTranslation: suggestion.exampleTranslation.trim(),
         }));
     } catch (error) {
       this.logger.warn(
-        `OpenAI example generation failed: ${
+        `OpenAI word suggestion generation failed: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`,
       );
@@ -98,7 +99,7 @@ export class WordsExampleService {
     }
   }
 
-  private buildRequestBody(word: string, definitions: DefinitionSuggestion[]) {
+  private buildRequestBody(word: string, targetLanguage: string) {
     const maxOutputTokens = this.configService.get<number>(
       'services.openai.maxTokens',
       1000,
@@ -116,21 +117,58 @@ export class WordsExampleService {
         effort: 'minimal',
       },
       instructions:
-        'You create concise English-learning example sentences. Return only valid JSON. Use natural, beginner-friendly English.',
+        'You are an English-learning dictionary. Independently identify distinct common meanings of the requested English word. Return only valid JSON. Definitions and examples must use concise, natural, beginner-friendly English. Translations must use the requested target language.',
       input: JSON.stringify({
-        task: 'Generate 3 to 4 example sentences for the word. Use different meanings, parts of speech, or contexts when possible. Return json with an examples array of objects. Each object must have text, meaning, and partOfSpeech.',
+        task: 'Identify up to 5 genuinely distinct dictionary senses of the word. Aim for 3 to 5 only when that many common senses exist; never pad the list with paraphrases or context-only variations. Pair every sense with its own part of speech, translation, example, and example translation.',
         word,
-        definitions: definitions.slice(0, 6),
+        targetLanguage,
         requirements: [
-          'Each example must contain the target word exactly or a common inflected form.',
-          'Examples should be useful for English learners.',
-          'Avoid duplicate meanings.',
+          'Treat two meanings as distinct only when an English learner would need a different usage rule or target-language translation.',
+          'Merge definitions that are merely synonyms or paraphrases of the same sense.',
+          'Order meanings from most common to more specific.',
+          'Each definition must be a concise English learner definition.',
+          'Each translation must be one natural phrase of 1 to 4 words in the target language, with no slash, alternatives, or explanation.',
+          'The translation must express the paired definition, not merely a general translation of the word.',
+          'Each example must demonstrate exactly its paired definition; reject the pair if substituting the definition into the sentence changes its intended meaning.',
+          'Each example must contain the target word or a common inflected form.',
           'Keep each example under 18 words.',
+          'Before returning, remove any suggestion whose definition overlaps semantically with another suggestion.',
+          'For example, thanking someone for help is a gratitude sense, not the sense of admitting that a fact is true.',
         ],
       }),
       text: {
         format: {
-          type: 'json_object',
+          type: 'json_schema',
+          name: 'word_suggestions',
+          strict: true,
+          schema: {
+            type: 'object',
+            properties: {
+              suggestions: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    partOfSpeech: { type: 'string' },
+                    definition: { type: 'string' },
+                    translation: { type: 'string' },
+                    example: { type: 'string' },
+                    exampleTranslation: { type: 'string' },
+                  },
+                  required: [
+                    'partOfSpeech',
+                    'definition',
+                    'translation',
+                    'example',
+                    'exampleTranslation',
+                  ],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ['suggestions'],
+            additionalProperties: false,
+          },
         },
       },
     };

@@ -13,7 +13,10 @@ import {
   SuggestTopicVocabularyDto,
   TopicVocabularyLevel,
 } from './dto/suggest-topic-vocabulary.dto';
-import { WordsExampleService } from './words-example.service';
+import {
+  OpenAiWordSuggestion,
+  WordsExampleService,
+} from './words-example.service';
 
 interface DictionaryResponseItem {
   word?: string;
@@ -360,8 +363,11 @@ export class WordsService {
     const targetLanguage = dto.targetLanguage || 'vi';
     const imageLimit = dto.imageLimit || 3;
 
-    // These calls only depend on the request and can run while the dictionary
-    // lookup is in flight.
+    // Every upstream call depends only on the request. OpenAI intentionally
+    // does not consume Dictionary API results.
+    const dictionaryPromise = this.fetchDictionary(word);
+    const openAiSuggestionsPromise =
+      this.wordsExampleService.generateSuggestions(word, targetLanguage);
     const translationPromise = this.translateSafely(word, targetLanguage);
     const audioUrlPromise = this.flashcardAudioService.createAudioUrl(
       userId,
@@ -372,56 +378,29 @@ export class WordsService {
       imageLimit,
     );
 
-    const dictionaryItems = await this.fetchDictionary(word);
-    const definitions = this.extractDefinitions(dictionaryItems);
-    const dictionaryExamples = this.extractExamples(dictionaryItems);
+    const [dictionaryItems, openAiSuggestions, translation, audioUrl, images] =
+      await Promise.all([
+        dictionaryPromise,
+        openAiSuggestionsPromise,
+        translationPromise,
+        audioUrlPromise,
+        imagesPromise,
+      ]);
+
     const pronunciation = this.extractPronunciation(dictionaryItems);
     const dictionaryAudioUrl = this.extractDictionaryAudioUrl(dictionaryItems);
-
-    // Both OpenAI calls depend on dictionary definitions, but not on each
-    // other, so start them together.
-    const definitionTranslationsPromise = this.translateDefinitionsWithOpenAi(
-      word,
-      definitions,
-      targetLanguage,
+    const definitions = openAiSuggestions.map((suggestion) => ({
+      text: suggestion.definition,
+      partOfSpeech: suggestion.partOfSpeech,
+    }));
+    const examples = openAiSuggestions.map((suggestion) =>
+      this.buildOpenAiExample(suggestion),
     );
-    const examples =
-      (await this.wordsExampleService.generateExamples(word, definitions)) ||
-      [];
-    const finalExamples =
-      examples.length > 0 ? examples : dictionaryExamples.slice(0, 4);
-    const translatedExamplesPromise = this.translateExamples(
-      finalExamples,
-      targetLanguage,
-    );
-
-    const [
-      translation,
-      definitionTranslations,
-      translatedExamples,
-      audioUrl,
-      images,
-    ] = await Promise.all([
-      translationPromise,
-      definitionTranslationsPromise,
-      translatedExamplesPromise,
-      audioUrlPromise,
-      imagesPromise,
-    ]);
-
-    const suggestions = definitions.map((definition, index) => {
-      // Dictionary and generated examples follow the definition order.
-      const example = finalExamples[index];
-      const exampleIndex = example ? finalExamples.indexOf(example) : -1;
-
-      return {
-        definition,
-        translation: definitionTranslations[index],
-        example: example
-          ? { ...example, translation: translatedExamples[exampleIndex] }
-          : undefined,
-      };
-    });
+    const suggestions = openAiSuggestions.map((suggestion, index) => ({
+      definition: definitions[index],
+      translation: suggestion.translation,
+      example: examples[index],
+    }));
 
     return {
       word,
@@ -429,12 +408,12 @@ export class WordsService {
       partOfSpeech: definitions[0]?.partOfSpeech,
       definitions,
       translation,
-      examples: finalExamples.map((example, index) => ({
+      examples: examples.map((example) => ({
         text: example.text,
         meaning: example.meaning,
         partOfSpeech: example.partOfSpeech,
         source: example.source,
-        translation: translatedExamples[index],
+        translation: example.translation,
       })),
       suggestions,
       audio: this.buildAudioSuggestion(audioUrl, dictionaryAudioUrl),
@@ -445,8 +424,20 @@ export class WordsService {
         translation,
         audioUrl,
         dictionaryAudioUrl,
-        finalExamples[0]?.source,
+        examples[0]?.source,
       ),
+    };
+  }
+
+  private buildOpenAiExample(
+    suggestion: OpenAiWordSuggestion,
+  ): ExampleSuggestion {
+    return {
+      text: suggestion.example,
+      translation: suggestion.exampleTranslation,
+      meaning: suggestion.definition,
+      partOfSpeech: suggestion.partOfSpeech,
+      source: 'openai',
     };
   }
 
@@ -753,59 +744,6 @@ export class WordsService {
       }, original);
   }
 
-  private extractDefinitions(
-    items: DictionaryResponseItem[],
-  ): DefinitionSuggestion[] {
-    const definitions = items
-      .flatMap((item) => item.meanings || [])
-      .flatMap((meaning) =>
-        (meaning.definitions || []).reduce<DefinitionSuggestion[]>(
-          (definitions, definition) => {
-            if (definition.definition) {
-              definitions.push({
-                text: definition.definition,
-                partOfSpeech: meaning.partOfSpeech,
-              });
-            }
-            return definitions;
-          },
-          [],
-        ),
-      );
-    // Put different parts of speech first, then fill remaining slots.
-    const prioritized: DefinitionSuggestion[] = [];
-    const remaining: DefinitionSuggestion[] = [];
-    const seenPartsOfSpeech = new Set<string>();
-
-    for (const definition of definitions) {
-      const partOfSpeech = definition.partOfSpeech?.toLowerCase();
-      if (partOfSpeech && !seenPartsOfSpeech.has(partOfSpeech)) {
-        seenPartsOfSpeech.add(partOfSpeech);
-        prioritized.push(definition);
-      } else {
-        remaining.push(definition);
-      }
-    }
-
-    return [...prioritized, ...remaining].slice(0, 5);
-  }
-
-  private extractExamples(
-    items: DictionaryResponseItem[],
-  ): ExampleSuggestion[] {
-    const examples = items
-      .flatMap((item) => item.meanings || [])
-      .flatMap((meaning) => meaning.definitions || [])
-      .map((definition) => definition.example)
-      .filter((example): example is string => !!example)
-      .slice(0, 3);
-
-    return examples.map((example) => ({
-      text: example,
-      source: 'dictionary',
-    }));
-  }
-
   private extractPronunciation(
     items: DictionaryResponseItem[],
   ): string | undefined {
@@ -827,17 +765,6 @@ export class WordsService {
     return undefined;
   }
 
-  private async translateExamples(
-    examples: ExampleSuggestion[],
-    targetLanguage: string,
-  ): Promise<Array<string | undefined>> {
-    return Promise.all(
-      examples.map((example) =>
-        this.translateSafely(example.text, targetLanguage),
-      ),
-    );
-  }
-
   private async translateSafely(
     text: string,
     targetLanguage: string,
@@ -856,80 +783,6 @@ export class WordsService {
         }`,
       );
       return undefined;
-    }
-  }
-
-  private async translateDefinitionsWithOpenAi(
-    word: string,
-    definitions: DefinitionSuggestion[],
-    targetLanguage: string,
-  ): Promise<Array<string | undefined>> {
-    const apiKey = this.configService.get<string>('services.openai.apiKey');
-    if (!apiKey) return definitions.map(() => undefined);
-
-    try {
-      const response = await fetch('https://api.openai.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.configService.get<string>(
-            'services.openai.model',
-            'gpt-5-nano',
-          ),
-          store: false,
-          max_output_tokens: 120,
-          reasoning: { effort: 'minimal' },
-          instructions:
-            'You are a bilingual vocabulary dictionary. Translate the English WORD into the target language for the specified part of speech and context. Return only valid JSON with a short translation of 1 to 4 words. Never translate or repeat the definition sentence. Example: book + noun means "sách"; book + verb means "đặt trước".',
-          input: JSON.stringify({
-            word,
-            meanings: definitions.map((item, index) => ({
-              index,
-              partOfSpeech: item.partOfSpeech,
-              definition: item.text,
-            })),
-            targetLanguage,
-          }),
-          text: {
-            format: {
-              type: 'json_schema',
-              name: 'word_translation',
-              strict: true,
-              schema: {
-                type: 'object',
-                properties: {
-                  translations: {
-                    type: 'array',
-                    items: { type: 'string' },
-                  },
-                },
-                required: ['translations'],
-                additionalProperties: false,
-              },
-            },
-          },
-        }),
-      });
-
-      if (!response.ok) return definitions.map(() => undefined);
-      const data = (await response.json()) as OpenAiResponse;
-      const output = this.extractOpenAiOutputText(data);
-      if (!output) return definitions.map(() => undefined);
-      const parsed = JSON.parse(output) as { translations?: string[] };
-      return definitions.map((_, index) => {
-        const translation = parsed.translations?.[index]?.trim();
-        return translation && translation.split(/\s+/).length <= 4
-          ? translation
-          : undefined;
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Meaning translation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
-      return definitions.map(() => undefined);
     }
   }
 
