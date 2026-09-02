@@ -14,6 +14,12 @@ import { PracticeGameResult } from './practice-game-result.entity';
 import { PracticeSession } from './practice-session.entity';
 import { Session, SessionResult, SessionType } from './session.entity';
 import { normalizeSessionScore } from './session-score';
+import type { StreakProgress, StreakStatus } from '../users/streak.types';
+
+export interface RecordedSession<T> {
+  session: T;
+  streakProgress: StreakProgress;
+}
 
 @Injectable()
 export class SessionsService {
@@ -32,7 +38,7 @@ export class SessionsService {
     userId: string,
     flashcardId: string,
     createSessionDto: CreateSessionDto,
-  ): Promise<Session> {
+  ): Promise<RecordedSession<Session>> {
     await this.flashcardsService.getFlashcardById(flashcardId, userId);
 
     const savedSession = await this.sessionRepository.save(
@@ -46,15 +52,18 @@ export class SessionsService {
         ),
       }),
     );
-    await this.usersService.recordProgress(userId, savedSession.score);
+    const streakProgress = await this.usersService.recordProgress(
+      userId,
+      savedSession.score,
+    );
 
-    return savedSession;
+    return { session: savedSession, streakProgress };
   }
 
   async createPracticeSession(
     userId: string,
     createPracticeSessionDto: CreatePracticeSessionDto,
-  ): Promise<PracticeSession> {
+  ): Promise<RecordedSession<PracticeSession>> {
     const flashcardIds = createPracticeSessionDto.flashcards.map(
       (flashcard) => flashcard.flashcardId,
     );
@@ -134,7 +143,10 @@ export class SessionsService {
     );
 
     await this.practiceGameResultRepository.save(gameResults);
-    await this.usersService.recordProgress(userId, score);
+    const streakProgress = await this.usersService.recordProgress(
+      userId,
+      score,
+    );
 
     for (const flashcard of createPracticeSessionDto.flashcards) {
       await this.flashcardsService.reviewFlashcard(
@@ -144,10 +156,13 @@ export class SessionsService {
       );
     }
 
-    return this.practiceSessionRepository.findOneOrFail({
-      where: { id: practiceSession.id },
-      relations: { gameResults: true },
-    });
+    const savedPracticeSession =
+      await this.practiceSessionRepository.findOneOrFail({
+        where: { id: practiceSession.id },
+        relations: { gameResults: true },
+      });
+
+    return { session: savedPracticeSession, streakProgress };
   }
 
   async getSessionHistory(
@@ -297,52 +312,8 @@ export class SessionsService {
     };
   }
 
-  async getStreakStats(userId: string): Promise<{
-    currentStreak: number;
-    longestStreak: number;
-    lastStudyDate: Date | null;
-  }> {
-    const [sessions, practiceSessions] = await Promise.all([
-      this.sessionRepository.find({ where: { userId } }),
-      this.practiceSessionRepository.find({ where: { userId } }),
-    ]);
-    const studyDates = [
-      ...sessions.map((session) => session.createdAt),
-      ...practiceSessions.map((practiceSession) => practiceSession.createdAt),
-    ].sort((a, b) => b.getTime() - a.getTime());
-
-    if (studyDates.length === 0) {
-      return {
-        currentStreak: 0,
-        longestStreak: 0,
-        lastStudyDate: null,
-      };
-    }
-
-    const activeDateKeys = new Set(
-      studyDates.map((date) => this.toDateKey(date)),
-    );
-    const today = this.startOfDay(new Date());
-    const lastStudyDate = studyDates[0];
-    const daysSinceLastStudy = Math.floor(
-      (today.getTime() - this.startOfDay(lastStudyDate).getTime()) /
-        (1000 * 60 * 60 * 24),
-    );
-
-    let currentStreak = 0;
-    if (daysSinceLastStudy <= 1) {
-      const checkDate = new Date(today);
-      while (activeDateKeys.has(this.toDateKey(checkDate))) {
-        currentStreak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-    }
-
-    return {
-      currentStreak,
-      longestStreak: this.calculateLongestStreak(studyDates),
-      lastStudyDate,
-    };
+  async getStreakStats(userId: string): Promise<StreakStatus> {
+    return this.usersService.getStreakStatus(userId);
   }
 
   async deleteSession(
@@ -380,39 +351,6 @@ export class SessionsService {
     };
     dailyStatsMap.set(dateKey, stats);
     return stats;
-  }
-
-  private calculateLongestStreak(studyDates: Date[]): number {
-    const sortedDateKeys = Array.from(
-      new Set(studyDates.map((date) => this.toDateKey(date))),
-    ).sort((a, b) => b.localeCompare(a));
-
-    if (sortedDateKeys.length === 0) return 0;
-
-    let longestStreak = 1;
-    let currentStreak = 1;
-
-    for (let i = 1; i < sortedDateKeys.length; i++) {
-      const currentDate = new Date(sortedDateKeys[i - 1]);
-      const previousDate = new Date(sortedDateKeys[i]);
-      const daysDiff = Math.floor(
-        (currentDate.getTime() - previousDate.getTime()) /
-          (1000 * 60 * 60 * 24),
-      );
-
-      if (daysDiff === 1) {
-        currentStreak++;
-        longestStreak = Math.max(longestStreak, currentStreak);
-      } else {
-        currentStreak = 1;
-      }
-    }
-
-    return longestStreak;
-  }
-
-  private startOfDay(date: Date): Date {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
 
   private toDateKey(date: Date): string {

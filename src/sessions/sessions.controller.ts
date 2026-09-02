@@ -29,15 +29,17 @@ export class SessionsController {
     @Body() createSessionDto: CreateSessionDto,
     @CurrentUser() user: User,
   ) {
-    const session = await this.sessionsService.createSession(
-      user.id,
-      flashcardId,
-      createSessionDto,
-    );
+    const { session, streakProgress } =
+      await this.sessionsService.createSession(
+        user.id,
+        flashcardId,
+        createSessionDto,
+      );
 
     return {
       message: 'Session recorded successfully',
       session,
+      streakProgress,
     };
   }
 
@@ -47,14 +49,16 @@ export class SessionsController {
     @Body() createPracticeSessionDto: CreatePracticeSessionDto,
     @CurrentUser() user: User,
   ) {
-    const practiceSession = await this.sessionsService.createPracticeSession(
-      user.id,
-      createPracticeSessionDto,
-    );
+    const { session: practiceSession, streakProgress } =
+      await this.sessionsService.createPracticeSession(
+        user.id,
+        createPracticeSessionDto,
+      );
 
     return {
       message: 'Practice session recorded successfully',
       practiceSession,
+      streakProgress,
     };
   }
 

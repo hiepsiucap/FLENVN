@@ -53,6 +53,24 @@ export class User {
   @Column({ default: 0 })
   streak!: number;
 
+  @Column({ default: 0 })
+  longestStreak!: number;
+
+  @Column({ type: 'integer', default: 100 })
+  dailyScoreTarget!: number;
+
+  @Column({ type: 'integer', nullable: true })
+  pendingDailyScoreTarget!: number | null;
+
+  @Column({ type: 'date', nullable: true })
+  targetEffectiveDate!: string | null;
+
+  @Column({ type: 'varchar', default: 'Asia/Bangkok' })
+  timezone!: string;
+
+  @Column({ type: 'date', nullable: true })
+  lastStreakDate!: string | null;
+
   @Column({ type: 'timestamp', nullable: true })
   lastActive!: Date | null;
 
