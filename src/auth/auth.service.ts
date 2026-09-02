@@ -205,7 +205,7 @@ export class AuthService {
     } = user;
     return {
       ...sanitizedUser,
-      rank: getUserRank(user.level),
+      rank: getUserRank(user.level, user.exp),
     };
   }
 
@@ -220,7 +220,7 @@ export class AuthService {
       streak: user.streak,
       lastActive: user.lastActive,
       isAdmin: user.isAdmin,
-      rank: getUserRank(user.level),
+      rank: getUserRank(user.level, user.exp),
     };
   }
 

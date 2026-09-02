@@ -221,7 +221,7 @@ export class UsersService {
     } = user;
     return {
       ...sanitizedUser,
-      rank: getUserRank(user.level),
+      rank: getUserRank(user.level, user.exp),
     };
   }
 }

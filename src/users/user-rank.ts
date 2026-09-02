@@ -23,6 +23,7 @@ export interface UserRankTier {
 
 const RANK_IMAGE_BASE_URL =
   'https://flenvn.s3.ap-southeast-1.amazonaws.com/images/ranks';
+const XP_PER_LEVEL = 1_000;
 
 export const USER_RANK_TIERS: readonly UserRankTier[] = [
   {
@@ -112,7 +113,7 @@ export function getRankImageUrl(slug: string): string {
   return `${RANK_IMAGE_BASE_URL}/${slug}.png`;
 }
 
-export function getUserRank(level: number): UserRank {
+export function getUserRank(level: number, exp?: number): UserRank {
   const normalizedLevel = Math.max(1, Math.floor(level));
   const tierIndex = findTierIndex(normalizedLevel);
   const tier = USER_RANK_TIERS[tierIndex];
@@ -126,13 +127,17 @@ export function getUserRank(level: number): UserRank {
       displayName: tier.name,
       imageUrl: getRankImageUrl(tier.slug),
       nextRank: null,
-      progressPercent: 100,
+      progressPercent:
+        exp === undefined ? 100 : getLevelProgressPercent(normalizedLevel, exp),
     };
   }
 
   const progress =
     (normalizedLevel - tier.minLevel) / (nextTier.minLevel - tier.minLevel);
-  const progressPercent = Math.max(0, Math.min(99, Math.floor(progress * 100)));
+  const progressPercent =
+    exp === undefined
+      ? Math.max(0, Math.min(99, Math.floor(progress * 100)))
+      : getLevelProgressPercent(normalizedLevel, exp);
   const division = getDivision(progress);
 
   return {
@@ -144,6 +149,20 @@ export function getUserRank(level: number): UserRank {
     nextRank: `${nextTier.name} III`,
     progressPercent,
   };
+}
+
+function getLevelProgressPercent(level: number, exp: number): number {
+  const currentLevelStartExp = (level - 1) * XP_PER_LEVEL;
+
+  return Math.max(
+    0,
+    Math.min(
+      99,
+      Math.floor(
+        ((Math.max(0, exp) - currentLevelStartExp) / XP_PER_LEVEL) * 100,
+      ),
+    ),
+  );
 }
 
 function findTierIndex(level: number): number {

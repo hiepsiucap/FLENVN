@@ -42,4 +42,9 @@ describe('getUserRank', () => {
       }),
     );
   });
+
+  it('returns EXP progress toward the next level when EXP is provided', () => {
+    expect(getUserRank(1, 81).progressPercent).toBe(8);
+    expect(getUserRank(17, 16_750).progressPercent).toBe(75);
+  });
 });
