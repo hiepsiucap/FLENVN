@@ -201,10 +201,15 @@ export class UsersService {
         progress.earnedScore >= progress.targetScore;
 
       if (justCompleted) {
-        const continued =
-          user.lastStreakDate !== null &&
-          this.daysBetween(user.lastStreakDate, today) === 1;
-        user.streak = continued ? user.streak + 1 : 1;
+        const daysSinceLastStreak = user.lastStreakDate
+          ? this.daysBetween(user.lastStreakDate, today)
+          : null;
+        user.streak =
+          daysSinceLastStreak === 0
+            ? Math.max(1, user.streak)
+            : daysSinceLastStreak === 1
+              ? user.streak + 1
+              : 1;
         user.longestStreak = Math.max(user.longestStreak, user.streak);
         user.lastStreakDate = today;
         progress.completedAt = now;

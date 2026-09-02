@@ -113,4 +113,22 @@ describe('UsersService streak goals', () => {
     expect(result.nextDailyTarget).toBe(150);
     expect(result.effectiveDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
+
+  it('does not increment a migrated streak twice on the same day', async () => {
+    const { service, user } = createHarness();
+    user.streak = 5;
+    user.longestStreak = 5;
+    user.lastStreakDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: user.timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+
+    const result = await service.recordProgress(user.id, 100);
+
+    expect(result.justCompleted).toBe(true);
+    expect(result.currentStreak).toBe(5);
+    expect(user.streak).toBe(5);
+  });
 });
