@@ -2,6 +2,8 @@ import type { Repository } from 'typeorm';
 import { UserDailyProgress } from './user-daily-progress.entity';
 import { User } from './user.entity';
 import { UsersService } from './users.service';
+import { validate } from 'class-validator';
+import { UpdateStreakSettingsDto } from './dto/update-streak-settings.dto';
 
 describe('UsersService streak goals', () => {
   function createHarness(initialScore = 0) {
@@ -130,5 +132,20 @@ describe('UsersService streak goals', () => {
     expect(result.justCompleted).toBe(true);
     expect(result.currentStreak).toBe(5);
     expect(user.streak).toBe(5);
+  });
+
+  it('accepts a daily target up to 20,000', async () => {
+    const dto = new UpdateStreakSettingsDto();
+    dto.dailyTarget = 20_000;
+
+    await expect(validate(dto)).resolves.toHaveLength(0);
+  });
+
+  it('rejects a daily target above 20,000', async () => {
+    const dto = new UpdateStreakSettingsDto();
+    dto.dailyTarget = 20_001;
+
+    const errors = await validate(dto);
+    expect(errors[0].constraints?.max).toContain('20000');
   });
 });
