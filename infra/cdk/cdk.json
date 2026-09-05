@@ -1,0 +1,16 @@
+{
+  "app": "npx ts-node --prefer-ts-exts bin/flenvn-infra.ts",
+  "context": {
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
+    "projectName": "flenvn",
+    "envName": "prod",
+    "instanceClass": "t2",
+    "instanceSize": "micro",
+    "volumeSizeGiB": 30,
+    "sshCidr": "0.0.0.0/0",
+    "allowHttp": true,
+    "allowHttps": true,
+    "useSpot": false,
+    "spotMaxPrice": "0.012"
+  }
+}

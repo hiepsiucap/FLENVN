@@ -22,6 +22,7 @@ import { SessionsModule } from './sessions/sessions.module';
 import { TranslateModule } from './translate/translate.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { WordsModule } from './words/words.module';
+import { LabelsModule } from './labels/labels.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { WordsModule } from './words/words.module';
     TranslateModule,
     UploadsModule,
     WordsModule,
+    LabelsModule,
     AdminModule,
   ],
   controllers: [AppController],

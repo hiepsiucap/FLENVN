@@ -75,6 +75,40 @@ export const validationSchema = Joi.object({
   OPENAI_MAX_TOKENS: Joi.number().default(1000),
   OPENAI_TEMPERATURE: Joi.number().min(0).max(2).default(0.7),
 
+  // Google Vertex AI Configuration
+  GOOGLE_CLOUD_PROJECT: Joi.string().when('AUTO_LABELING_ENABLED', {
+    is: 'true',
+    then: Joi.required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  GOOGLE_CLOUD_LOCATION: Joi.string().default('global'),
+  GOOGLE_VERTEX_MODEL: Joi.string().default('gemini-3.5-flash-lite'),
+  GOOGLE_VERTEX_FALLBACK_MODEL: Joi.string().default('gemini-3.5-flash'),
+  GOOGLE_VERTEX_MAX_OUTPUT_TOKENS: Joi.number()
+    .integer()
+    .min(100)
+    .default(3000),
+
+  // Async vocabulary labeling
+  AUTO_LABELING_ENABLED: Joi.string().valid('true', 'false').default('false'),
+  AUTO_LABELING_QUEUE_URL: Joi.string()
+    .uri()
+    .when('AUTO_LABELING_ENABLED', {
+      is: 'true',
+      then: Joi.required(),
+      otherwise: Joi.string().uri().allow('').default(''),
+    }),
+  AUTO_LABELING_GEMINI_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(60000)
+    .default(20000),
+  AUTO_LABELING_PENDING_RECOVERY_MINUTES: Joi.number()
+    .integer()
+    .min(1)
+    .max(1440)
+    .default(5),
+
   // Image Search Configuration
   PEXELS_API_KEY: Joi.string().allow('').optional(),
   UNSPLASH_ACCESS_KEY: Joi.string().allow('').optional(),

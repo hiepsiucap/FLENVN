@@ -1,6 +1,13 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FlashcardAudioService } from '../flashcards/flashcard-audio.service';
+import { FlashcardsService } from '../flashcards/flashcards.service';
+import { FlashCard } from '../flashcards/flashcard.entity';
 import {
   FlashcardImageService,
   FlashcardImageSuggestion,
@@ -8,6 +15,7 @@ import {
 import { TranslateService } from '../translate/translate.service';
 import { AutocompleteWordDto } from './dto/autocomplete-word.dto';
 import { CorrectTextDto } from './dto/correct-text.dto';
+import { ExplainWordInContextDto } from './dto/explain-word-in-context.dto';
 import { SuggestWordDto } from './dto/suggest-word.dto';
 import {
   SuggestTopicVocabularyDto,
@@ -37,6 +45,11 @@ interface DictionaryResponseItem {
 interface DatamuseSuggestion {
   word?: string;
   score?: number;
+  tags?: string[];
+}
+
+interface DatamusePronunciationResult {
+  word?: string;
   tags?: string[];
 }
 
@@ -95,7 +108,7 @@ export interface ExampleSuggestion {
   translation?: string;
   meaning?: string;
   partOfSpeech?: string;
-  source?: 'openai' | 'dictionary';
+  source?: 'vertex' | 'openai' | 'dictionary' | 'database';
 }
 
 export interface AudioSuggestion {
@@ -104,6 +117,9 @@ export interface AudioSuggestion {
 }
 
 export interface WordSuggestionResponse {
+  existing?: boolean;
+  existingFlashcardId?: string;
+  source?: 'generated' | 'database';
   word: string;
   pronunciation?: string;
   partOfSpeech?: string;
@@ -118,8 +134,27 @@ export interface WordSuggestionResponse {
     translation?: string;
     audio?: string;
     examples?: string;
-    images: Array<'pexels' | 'unsplash' | 'default'>;
+    images: Array<'pexels' | 'unsplash' | 'default' | 'database'>;
   };
+}
+
+export interface ContextualWordExplanationResponse {
+  existing?: boolean;
+  existingFlashcardId?: string;
+  word: string;
+  matchedForm: string;
+  contextSentence: string;
+  pronunciation?: string;
+  partOfSpeech: string;
+  definition: string;
+  translation: string;
+  explanation: string;
+  example: string;
+  generatedExample: boolean;
+  exampleTranslation: string;
+  audio?: AudioSuggestion;
+  images: FlashcardImageSuggestion[];
+  source: 'generated' | 'database';
 }
 
 export interface WordLearningCombo {
@@ -182,6 +217,7 @@ export class WordsService {
     private readonly flashcardImageService: FlashcardImageService,
     private readonly translateService: TranslateService,
     private readonly wordsExampleService: WordsExampleService,
+    private readonly flashcardsService: FlashcardsService,
   ) {
     this.dictionaryApiTimeoutMs = this.configService.get<number>(
       'DICTIONARY_API_TIMEOUT_MS',
@@ -359,13 +395,19 @@ export class WordsService {
     if (!word) {
       throw new BadRequestException('Word must not be empty');
     }
+    const existingFlashcard = await this.flashcardsService.findByWord(
+      userId,
+      word,
+    );
+    if (existingFlashcard) {
+      return this.buildExistingSuggestion(existingFlashcard);
+    }
 
     const targetLanguage = dto.targetLanguage || 'vi';
     const imageLimit = dto.imageLimit || 3;
 
-    // Every upstream call depends only on the request. OpenAI intentionally
-    // does not consume Dictionary API results.
-    const dictionaryPromise = this.fetchDictionary(word);
+    // Every upstream call depends only on the request and starts in parallel.
+    const pronunciationPromise = this.fetchPronunciation(word);
     const openAiSuggestionsPromise =
       this.wordsExampleService.generateSuggestions(word, targetLanguage);
     const translationPromise = this.translateSafely(word, targetLanguage);
@@ -378,23 +420,21 @@ export class WordsService {
       imageLimit,
     );
 
-    const [dictionaryItems, openAiSuggestions, translation, audioUrl, images] =
+    const [pronunciation, openAiSuggestions, translation, audioUrl, images] =
       await Promise.all([
-        dictionaryPromise,
+        pronunciationPromise,
         openAiSuggestionsPromise,
         translationPromise,
         audioUrlPromise,
         imagesPromise,
       ]);
 
-    const pronunciation = this.extractPronunciation(dictionaryItems);
-    const dictionaryAudioUrl = this.extractDictionaryAudioUrl(dictionaryItems);
     const definitions = openAiSuggestions.map((suggestion) => ({
       text: suggestion.definition,
       partOfSpeech: suggestion.partOfSpeech,
     }));
     const examples = openAiSuggestions.map((suggestion) =>
-      this.buildOpenAiExample(suggestion),
+      this.buildAiExample(suggestion),
     );
     const suggestions = openAiSuggestions.map((suggestion, index) => ({
       definition: definitions[index],
@@ -416,59 +456,276 @@ export class WordsService {
         translation: example.translation,
       })),
       suggestions,
-      audio: this.buildAudioSuggestion(audioUrl, dictionaryAudioUrl),
+      audio: this.buildAudioSuggestion(audioUrl),
       images,
       sources: this.buildSources(
-        dictionaryItems,
+        pronunciation,
         images,
         translation,
         audioUrl,
-        dictionaryAudioUrl,
         examples[0]?.source,
       ),
+      source: 'generated',
     };
   }
 
-  private buildOpenAiExample(
-    suggestion: OpenAiWordSuggestion,
-  ): ExampleSuggestion {
+  async explainWordInContext(
+    userId: string,
+    dto: ExplainWordInContextDto,
+  ): Promise<ContextualWordExplanationResponse> {
+    const text = dto.text.trim();
+    const word = dto.word.trim();
+    if (!text) throw new BadRequestException('Text must not be empty');
+    if (!word) throw new BadRequestException('Word must not be empty');
+
+    const occurrence = this.findWordOccurrence(
+      text,
+      word,
+      dto.occurrenceIndex ?? 0,
+    );
+    if (!occurrence) {
+      throw new BadRequestException(
+        'The requested word occurrence was not found in the supplied text',
+      );
+    }
+
+    const existingFlashcard = await this.flashcardsService.findByWord(
+      userId,
+      word,
+    );
+    const example = this.extractContainingSentence(text, occurrence.index);
+    if (existingFlashcard) {
+      return this.buildExistingContextResponse(
+        existingFlashcard,
+        word,
+        occurrence.matchedForm,
+        example,
+      );
+    }
+
+    const targetLanguage = dto.targetLanguage || 'vi';
+    const [explanation, pronunciation, audioUrl, images] = await Promise.all([
+      this.wordsExampleService.explainInContext(
+        word,
+        occurrence.matchedForm,
+        text,
+        example,
+        targetLanguage,
+      ),
+      this.fetchPronunciation(word),
+      this.flashcardAudioService.createAudioUrl(userId, word),
+      this.flashcardImageService.findImageUrls(word, dto.imageLimit || 3),
+    ]);
+
+    if (!explanation) {
+      throw new InternalServerErrorException(
+        'Contextual word explanation is temporarily unavailable',
+      );
+    }
+
+    return {
+      word,
+      matchedForm: occurrence.matchedForm,
+      contextSentence: example,
+      pronunciation,
+      partOfSpeech: explanation.partOfSpeech,
+      definition: explanation.definition,
+      translation: explanation.translation,
+      explanation: explanation.explanation,
+      example: explanation.example,
+      generatedExample: explanation.generatedExample,
+      exampleTranslation: explanation.exampleTranslation,
+      audio: this.buildAudioSuggestion(audioUrl),
+      images,
+      source: 'generated',
+    };
+  }
+
+  private buildExistingSuggestion(
+    flashcard: FlashCard,
+  ): WordSuggestionResponse {
+    const definition = flashcard.definition
+      ? {
+          text: flashcard.definition,
+          partOfSpeech: flashcard.partOfSpeech || undefined,
+        }
+      : undefined;
+    const example = flashcard.example
+      ? {
+          text: flashcard.example,
+          translation: flashcard.exampleTranslation || undefined,
+          meaning: flashcard.definition || undefined,
+          partOfSpeech: flashcard.partOfSpeech || undefined,
+          source: 'database' as const,
+        }
+      : undefined;
+    const images: FlashcardImageSuggestion[] = flashcard.imageUrl
+      ? [{ url: flashcard.imageUrl, source: 'default' }]
+      : [];
+
+    return {
+      existing: true,
+      existingFlashcardId: flashcard.id,
+      source: 'database',
+      word: flashcard.word,
+      pronunciation: flashcard.pronunciation || undefined,
+      partOfSpeech: flashcard.partOfSpeech || undefined,
+      definitions: definition ? [definition] : [],
+      translation: flashcard.translation || undefined,
+      examples: example ? [example] : [],
+      suggestions: definition
+        ? [
+            {
+              definition,
+              translation: flashcard.translation || undefined,
+              example,
+            },
+          ]
+        : [],
+      audio: flashcard.audioUrl
+        ? { url: flashcard.audioUrl, source: 'polly' }
+        : undefined,
+      images,
+      sources: {
+        dictionary: flashcard.pronunciation ? 'database' : undefined,
+        translation: flashcard.translation ? 'database' : undefined,
+        audio: flashcard.audioUrl ? 'database' : undefined,
+        examples: flashcard.example ? 'database' : undefined,
+        images: flashcard.imageUrl ? ['database'] : [],
+      },
+    };
+  }
+
+  private buildExistingContextResponse(
+    flashcard: FlashCard,
+    word: string,
+    matchedForm: string,
+    contextSentence: string,
+  ): ContextualWordExplanationResponse {
+    return {
+      existing: true,
+      existingFlashcardId: flashcard.id,
+      word,
+      matchedForm,
+      contextSentence,
+      pronunciation: flashcard.pronunciation || undefined,
+      partOfSpeech: flashcard.partOfSpeech || '',
+      definition: flashcard.definition || '',
+      translation: flashcard.translation || '',
+      explanation: '',
+      example: flashcard.example || contextSentence,
+      generatedExample: false,
+      exampleTranslation: flashcard.exampleTranslation || '',
+      audio: flashcard.audioUrl
+        ? { url: flashcard.audioUrl, source: 'polly' }
+        : undefined,
+      images: flashcard.imageUrl
+        ? [{ url: flashcard.imageUrl, source: 'default' }]
+        : [],
+      source: 'database',
+    };
+  }
+
+  private findWordOccurrence(
+    text: string,
+    word: string,
+    occurrenceIndex: number,
+  ): { matchedForm: string; index: number } | undefined {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const forms = new Set([escaped]);
+    const lower = word.toLowerCase();
+
+    if (/^[a-z]+$/i.test(word)) {
+      forms.add(`${escaped}s`);
+      forms.add(`${escaped}es`);
+      forms.add(`${escaped}ed`);
+      forms.add(`${escaped}ing`);
+      if (lower.endsWith('e')) {
+        forms.add(`${escaped}d`);
+        forms.add(`${escaped.slice(0, -1)}ing`);
+      }
+      if (lower.endsWith('y') && word.length > 1) {
+        forms.add(`${escaped.slice(0, -1)}ies`);
+        forms.add(`${escaped.slice(0, -1)}ied`);
+      }
+      const last = lower.at(-1);
+      const previous = lower.at(-2);
+      if (
+        last &&
+        previous &&
+        /[bcdfgklmnprst]/.test(last) &&
+        /[aeiou]/.test(previous)
+      ) {
+        forms.add(`${escaped}${last}ed`);
+        forms.add(`${escaped}${last}ing`);
+      }
+    }
+
+    const pattern = [...forms].sort((a, b) => b.length - a.length).join('|');
+    const regex = new RegExp(`(?<![A-Za-z])(?:${pattern})(?![A-Za-z])`, 'giu');
+    const matches = [...text.matchAll(regex)];
+    const match = matches[occurrenceIndex];
+    if (match?.index === undefined) return undefined;
+    return { matchedForm: match[0], index: match.index };
+  }
+
+  private extractContainingSentence(text: string, matchIndex: number): string {
+    const before = text.slice(0, matchIndex);
+    const previousBoundary = Math.max(
+      before.lastIndexOf('.'),
+      before.lastIndexOf('!'),
+      before.lastIndexOf('?'),
+      before.lastIndexOf('\n'),
+    );
+    const after = text.slice(matchIndex);
+    const nextRelative = after.search(/[.!?\n]/);
+    const end =
+      nextRelative === -1 ? text.length : matchIndex + nextRelative + 1;
+    return text.slice(previousBoundary + 1, end).trim();
+  }
+
+  private buildAiExample(suggestion: OpenAiWordSuggestion): ExampleSuggestion {
     return {
       text: suggestion.example,
       translation: suggestion.exampleTranslation,
       meaning: suggestion.definition,
       partOfSpeech: suggestion.partOfSpeech,
-      source: 'openai',
+      source: suggestion.source,
     };
   }
 
-  private async fetchDictionary(
-    word: string,
-  ): Promise<DictionaryResponseItem[]> {
+  private async fetchPronunciation(word: string): Promise<string | undefined> {
     try {
-      const response = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(
-          word,
-        )}`,
-        {
-          signal: AbortSignal.timeout(this.dictionaryApiTimeoutMs),
-        },
-      );
+      const url = new URL('https://api.datamuse.com/words');
+      url.searchParams.set('sp', word);
+      url.searchParams.set('md', 'r');
+      url.searchParams.set('ipa', '1');
+      url.searchParams.set('max', '1');
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(this.dictionaryApiTimeoutMs),
+      });
 
       if (!response.ok) {
-        this.logger.warn(`Dictionary lookup failed: ${response.status}`);
-        return [];
+        this.logger.warn(`Pronunciation lookup failed: ${response.status}`);
+        return undefined;
       }
 
-      const data = (await response.json()) as unknown;
-      return Array.isArray(data) ? (data as DictionaryResponseItem[]) : [];
+      const data = (await response.json()) as DatamusePronunciationResult[];
+      const exactMatch = data.find(
+        (result) => result.word?.toLowerCase() === word.toLowerCase(),
+      );
+      const pronunciation = exactMatch?.tags?.find((tag) =>
+        tag.startsWith('ipa_pron:'),
+      );
+      return pronunciation?.slice('ipa_pron:'.length).trim() || undefined;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.warn(
         error instanceof DOMException && error.name === 'TimeoutError'
-          ? `Dictionary lookup timed out after ${this.dictionaryApiTimeoutMs}ms`
-          : `Dictionary lookup failed: ${message}`,
+          ? `Pronunciation lookup timed out after ${this.dictionaryApiTimeoutMs}ms`
+          : `Pronunciation lookup failed: ${message}`,
       );
-      return [];
+      return undefined;
     }
   }
 
@@ -744,27 +1001,6 @@ export class WordsService {
       }, original);
   }
 
-  private extractPronunciation(
-    items: DictionaryResponseItem[],
-  ): string | undefined {
-    for (const item of items) {
-      const phonetic =
-        item.phonetic || item.phonetics?.find((p) => p.text)?.text;
-      if (phonetic) return phonetic;
-    }
-    return undefined;
-  }
-
-  private extractDictionaryAudioUrl(
-    items: DictionaryResponseItem[],
-  ): string | undefined {
-    for (const item of items) {
-      const audio = item.phonetics?.find((phonetic) => phonetic.audio)?.audio;
-      if (audio) return audio;
-    }
-    return undefined;
-  }
-
   private async translateSafely(
     text: string,
     targetLanguage: string,
@@ -788,7 +1024,6 @@ export class WordsService {
 
   private buildAudioSuggestion(
     pollyAudioUrl?: string,
-    dictionaryAudioUrl?: string,
   ): AudioSuggestion | undefined {
     if (pollyAudioUrl) {
       return {
@@ -797,38 +1032,30 @@ export class WordsService {
       };
     }
 
-    if (dictionaryAudioUrl) {
-      return {
-        url: dictionaryAudioUrl,
-        source: 'dictionary',
-      };
-    }
-
     return undefined;
   }
 
   private buildSources(
-    dictionaryItems: DictionaryResponseItem[],
+    pronunciation: string | undefined,
     images: FlashcardImageSuggestion[],
     translation?: string,
     pollyAudioUrl?: string,
-    dictionaryAudioUrl?: string,
-    exampleSource?: 'openai' | 'dictionary',
+    exampleSource?: 'vertex' | 'openai' | 'dictionary' | 'database',
   ) {
     return {
-      dictionary: dictionaryItems.length > 0 ? 'dictionaryapi.dev' : undefined,
+      dictionary: pronunciation ? 'datamuse' : undefined,
       translation: translation ? 'aws-translate' : undefined,
-      audio: pollyAudioUrl
-        ? 'aws-polly'
-        : dictionaryAudioUrl
-          ? 'dictionaryapi.dev'
-          : undefined,
+      audio: pollyAudioUrl ? 'aws-polly' : undefined,
       examples:
-        exampleSource === 'openai'
-          ? 'openai'
-          : exampleSource === 'dictionary'
-            ? 'dictionaryapi.dev'
-            : undefined,
+        exampleSource === 'database'
+          ? 'database'
+          : exampleSource === 'vertex'
+            ? 'google-vertex-ai'
+            : exampleSource === 'openai'
+              ? 'openai'
+              : exampleSource === 'dictionary'
+                ? 'dictionaryapi.dev'
+                : undefined,
       images: [...new Set(images.map((image) => image.source))],
     };
   }

@@ -1,59 +1,96 @@
 import { ConfigService } from '@nestjs/config';
 import { WordsExampleService } from './words-example.service';
 
-describe('WordsExampleService', () => {
-  const originalFetch = global.fetch;
+const mockGenerateContent = jest.fn();
 
+jest.mock('@google/genai', () => ({
+  GoogleGenAI: jest.fn().mockImplementation(() => ({
+    models: { generateContent: mockGenerateContent },
+  })),
+}));
+
+describe('WordsExampleService', () => {
   afterEach(() => {
-    global.fetch = originalFetch;
+    mockGenerateContent.mockReset();
     jest.restoreAllMocks();
   });
 
-  it('generates paired meanings without Dictionary API input', async () => {
-    const service = new WordsExampleService({
+  const createService = () =>
+    new WordsExampleService({
       get: jest.fn((key: string, defaultValue?: unknown) => {
-        if (key === 'services.openai.apiKey') return 'test-key';
-        if (key === 'services.openai.model') return 'gpt-5-nano';
-        return defaultValue;
+        const values: Record<string, unknown> = {
+          'services.vertex.project': 'test-project',
+          'services.vertex.location': 'global',
+          'services.vertex.model': 'gemini-3.5-flash-lite',
+          'services.vertex.fallbackModel': 'gemini-3.5-flash',
+        };
+        return values[key] ?? defaultValue;
       }),
     } as unknown as ConfigService);
-    const output = {
+
+  const validOutput = {
+    suggestions: [
+      {
+        partOfSpeech: 'adjective',
+        definition: 'Giving off a lot of light.',
+        translation: 'sáng',
+        example: 'The room is bright.',
+        exampleTranslation: 'Căn phòng sáng.',
+      },
+    ],
+  };
+
+  it('uses Gemini Flash Lite when its result is valid', async () => {
+    mockGenerateContent.mockResolvedValue({ text: JSON.stringify(validOutput) });
+
+    await expect(
+      createService().generateSuggestions('bright', 'vi'),
+    ).resolves.toEqual(
+      validOutput.suggestions.map((suggestion) => ({
+        ...suggestion,
+        source: 'vertex',
+      })),
+    );
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+    expect(mockGenerateContent.mock.calls[0][0].model).toBe(
+      'gemini-3.5-flash-lite',
+    );
+  });
+
+  it('uses Gemini Flash fallback when Lite returns unaccented Vietnamese', async () => {
+    const unaccentedOutput = {
       suggestions: [
         {
-          partOfSpeech: 'verb',
-          definition: 'To accept that something is true.',
-          translation: 'thừa nhận',
-          example: 'She acknowledged her mistake.',
-          exampleTranslation: 'Cô ấy thừa nhận lỗi của mình.',
+          ...validOutput.suggestions[0],
+          translation: 'sang',
+          exampleTranslation: 'Can phong sang.',
         },
       ],
     };
-
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: jest
-        .fn()
-        .mockResolvedValue({ output_text: JSON.stringify(output) }),
-    }) as unknown as jest.MockedFunction<typeof fetch>;
+    mockGenerateContent
+      .mockResolvedValueOnce({ text: JSON.stringify(unaccentedOutput) })
+      .mockResolvedValueOnce({ text: JSON.stringify(validOutput) });
 
     await expect(
-      service.generateSuggestions('acknowledge', 'vi'),
-    ).resolves.toEqual(output.suggestions);
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-
-    const request = (global.fetch as jest.MockedFunction<typeof fetch>).mock
-      .calls[0];
-    const rawBody = request[1]?.body;
-    expect(typeof rawBody).toBe('string');
-    if (typeof rawBody !== 'string') throw new Error('Expected JSON body');
-    const body = JSON.parse(rawBody) as {
-      input: string;
-    };
-    const input = JSON.parse(body.input) as Record<string, unknown>;
-
-    expect(input).toEqual(
-      expect.objectContaining({ word: 'acknowledge', targetLanguage: 'vi' }),
+      createService().generateSuggestions('bright', 'vi'),
+    ).resolves.toEqual(
+      validOutput.suggestions.map((suggestion) => ({
+        ...suggestion,
+        source: 'vertex',
+      })),
     );
-    expect(input).not.toHaveProperty('definitions');
+    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+    expect(mockGenerateContent.mock.calls[1][0].model).toBe(
+      'gemini-3.5-flash',
+    );
+  });
+
+  it('returns no suggestions when both Vertex models fail', async () => {
+    mockGenerateContent.mockRejectedValue(new Error('Vertex unavailable'));
+
+    await expect(
+      createService().generateSuggestions('bright', 'vi'),
+    ).resolves.toEqual([]);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,7 +1,11 @@
 import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -64,4 +68,12 @@ export class UpdateFlashcardDto {
   @IsOptional()
   @IsString()
   exampleTranslation?: string;
+
+  @ApiPropertyOptional({ type: [String], maxItems: 10 })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(10)
+  @IsUUID('4', { each: true })
+  labelIds?: string[];
 }

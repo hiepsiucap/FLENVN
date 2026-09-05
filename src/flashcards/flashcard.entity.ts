@@ -12,6 +12,8 @@ import {
 import { Book } from '../books/book.entity';
 import { Session } from '../sessions/session.entity';
 import { User } from '../users/user.entity';
+import { FlashcardLabel, LabelSource } from '../labels/flashcard-label.entity';
+import type { Label } from '../labels/label.entity';
 import { PartOfSpeech } from './part-of-speech.enum';
 
 export enum FlashCardStatus {
@@ -19,6 +21,13 @@ export enum FlashCardStatus {
   LEARNING = 'learning',
   REVIEWING = 'reviewing',
   MASTERED = 'mastered',
+}
+
+export enum LabelingStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
 }
 
 @Entity('flashcards')
@@ -89,6 +98,25 @@ export class FlashCard {
   })
   status!: FlashCardStatus;
 
+  @Column({
+    type: 'enum',
+    enum: LabelingStatus,
+    default: LabelingStatus.PENDING,
+  })
+  labelingStatus!: LabelingStatus;
+
+  @Column({ default: 1 })
+  labelingVersion!: number;
+
+  @Column({ default: 0 })
+  labelingAttempts!: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  labelingQueuedAt!: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  labeledAt!: Date | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 
@@ -112,4 +140,10 @@ export class FlashCard {
 
   @OneToMany(() => Session, (session) => session.flashcard)
   sessions!: Session[];
+
+  @OneToMany(() => FlashcardLabel, (flashcardLabel) => flashcardLabel.flashcard)
+  labelLinks?: FlashcardLabel[];
+
+  // Populated by FlashcardsService for API responses; not persisted directly.
+  labels?: Array<Label & { source: LabelSource; confirmedByUser: boolean }>;
 }

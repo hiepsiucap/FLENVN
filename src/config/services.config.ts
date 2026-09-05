@@ -33,6 +33,32 @@ export default registerAs('services', () => ({
     temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7'),
   },
 
+  // Google Vertex AI Configuration
+  vertex: {
+    project: process.env.GOOGLE_CLOUD_PROJECT,
+    location: process.env.GOOGLE_CLOUD_LOCATION || 'global',
+    model: process.env.GOOGLE_VERTEX_MODEL || 'gemini-3.5-flash-lite',
+    fallbackModel:
+      process.env.GOOGLE_VERTEX_FALLBACK_MODEL || 'gemini-3.5-flash',
+    maxOutputTokens: parseInt(
+      process.env.GOOGLE_VERTEX_MAX_OUTPUT_TOKENS || '3000',
+      10,
+    ),
+  },
+
+  autoLabeling: {
+    enabled: process.env.AUTO_LABELING_ENABLED === 'true',
+    queueUrl: process.env.AUTO_LABELING_QUEUE_URL || '',
+    geminiTimeoutMs: parseInt(
+      process.env.AUTO_LABELING_GEMINI_TIMEOUT_MS || '20000',
+      10,
+    ),
+    pendingRecoveryMinutes: parseInt(
+      process.env.AUTO_LABELING_PENDING_RECOVERY_MINUTES || '5',
+      10,
+    ),
+  },
+
   // Image Search Configuration
   pexels: {
     apiKey: process.env.PEXELS_API_KEY,

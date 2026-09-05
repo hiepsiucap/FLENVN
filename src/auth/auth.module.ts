@@ -30,6 +30,6 @@ import { AdminGuard } from './guards/admin.guard';
   ],
   controllers: [AuthController],
   providers: [AuthService, TokenService, JwtStrategy, AdminGuard],
-  exports: [AuthService, JwtStrategy, PassportModule],
+  exports: [AuthService, JwtStrategy, PassportModule, JwtModule],
 })
 export class AuthModule {}

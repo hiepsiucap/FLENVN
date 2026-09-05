@@ -82,4 +82,11 @@ export class UsersController {
   async deleteUser(@Param('id') id: string) {
     return this.usersService.deleteUser(id);
   }
+
+  @Post(':id/verify-email')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @HttpCode(HttpStatus.OK)
+  async verifyUserEmail(@Param('id') id: string) {
+    return this.usersService.verifyEmailById(id);
+  }
 }

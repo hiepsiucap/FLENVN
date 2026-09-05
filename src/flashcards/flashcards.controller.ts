@@ -19,10 +19,15 @@ import { CreateFlashcardDto } from './dto/create-flashcard.dto';
 import { UpdateFlashcardDto } from './dto/update-flashcard.dto';
 import { FlashCardStatus } from './flashcard.entity';
 import { FlashcardsService } from './flashcards.service';
+import { AssignFlashcardLabelsDto } from '../labels/dto/assign-flashcard-labels.dto';
+import { LabelsService } from '../labels/labels.service';
 
 @Controller('flashcards')
 export class FlashcardsController {
-  constructor(private readonly flashcardsService: FlashcardsService) {}
+  constructor(
+    private readonly flashcardsService: FlashcardsService,
+    private readonly labelsService: LabelsService,
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -45,6 +50,8 @@ export class FlashcardsController {
     @Request() req: AuthenticatedRequest,
     @Query('bookId') bookId?: string,
     @Query('status') status?: string,
+    @Query('labelIds') labelIds?: string,
+    @Query('labelMode') labelMode?: string,
   ) {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
@@ -65,6 +72,8 @@ export class FlashcardsController {
       req.user.id,
       bookId,
       statusFilter,
+      this.parseLabelIds(labelIds),
+      labelMode,
     );
   }
 
@@ -74,11 +83,19 @@ export class FlashcardsController {
     @Request() req: AuthenticatedRequest,
     @Query('limit') limit: number = 20,
     @Query('bookId') bookId?: string,
+    @Query('labelIds') labelIds?: string,
+    @Query('labelMode') labelMode?: string,
   ) {
     if (!req.user?.id) {
       throw new Error('User not authenticated');
     }
-    return this.flashcardsService.getCardsForReview(req.user.id, limit, bookId);
+    return this.flashcardsService.getCardsForReview(
+      req.user.id,
+      limit,
+      bookId,
+      this.parseLabelIds(labelIds),
+      labelMode,
+    );
   }
 
   @Get('stats')
@@ -117,6 +134,32 @@ export class FlashcardsController {
       req.user.id,
       updateFlashcardDto,
     );
+  }
+
+  @Put(':id/labels')
+  @UseGuards(JwtAuthGuard)
+  async replaceLabels(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') flashcardId: string,
+    @Body() dto: AssignFlashcardLabelsDto,
+  ) {
+    if (!req.user?.id) throw new Error('User not authenticated');
+    return this.labelsService.replaceFlashcardLabels(
+      req.user.id,
+      flashcardId,
+      dto,
+    );
+  }
+
+  @Post(':id/labels/retry')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.ACCEPTED)
+  async retryLabeling(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') flashcardId: string,
+  ) {
+    if (!req.user?.id) throw new Error('User not authenticated');
+    return this.flashcardsService.retryLabeling(flashcardId, req.user.id);
   }
 
   @Delete(':id')
@@ -161,5 +204,17 @@ export class FlashcardsController {
       throw new Error('User not authenticated');
     }
     return this.flashcardsService.markAsMastered(flashcardId, req.user.id);
+  }
+
+  private parseLabelIds(value?: string): string[] {
+    if (!value) return [];
+    return Array.from(
+      new Set(
+        value
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    );
   }
 }
