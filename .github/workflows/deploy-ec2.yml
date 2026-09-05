@@ -76,6 +76,9 @@ jobs:
             cd "$EC2_APP_DIR"
             tar -xzf flenvn-api.tar.gz
             npm ci --omit=dev --no-audit --no-fund
-            pm2 startOrReload ecosystem.config.cjs --env production
+            # startOrReload preserves a stale cwd when EC2_APP_DIR is a symlink
+            # whose target changes. Recreate the process so it runs this artifact.
+            pm2 delete flenvn-api || true
+            pm2 start ecosystem.config.cjs --env production
             pm2 save
           EOF

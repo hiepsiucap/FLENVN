@@ -10,6 +10,15 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
       },
+      env_production: {
+        NODE_ENV: 'production',
+        AWS_REGION: 'ap-southeast-1',
+        AUTO_LABELING_ENABLED: 'true',
+        AUTO_LABELING_QUEUE_URL:
+          'https://sqs.ap-southeast-1.amazonaws.com/490863269756/flenvn-prod-vocabulary-labeling',
+        AUTO_LABELING_GEMINI_TIMEOUT_MS: '20000',
+        AUTO_LABELING_PENDING_RECOVERY_MINUTES: '5',
+      },
     },
   ],
 };
