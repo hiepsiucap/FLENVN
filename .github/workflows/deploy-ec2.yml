@@ -55,6 +55,7 @@ jobs:
           tar -czf flenvn-api.tar.gz \
             dist \
             scripts/register-tracing.cjs \
+            scripts/backfill-vocabulary-labels.js \
             package.json \
             package-lock.json \
             ecosystem.config.cjs

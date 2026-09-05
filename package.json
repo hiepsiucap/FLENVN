@@ -8,6 +8,7 @@
   "scripts": {
     "build": "nest build",
     "openapi:generate": "npm run build && node scripts/generate-openapi.js",
+    "labels:backfill": "node scripts/backfill-vocabulary-labels.js",
     "youtube:transcript-poc": "node scripts/youtube-transcript-poc.js",
     "youtube:natural-word-poc": "node scripts/youtube-natural-word-poc.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

@@ -66,8 +66,13 @@ export class UsersService {
       user.username = updateProfileDto.username;
     }
     if (updateProfileDto.email) {
-      user.email = updateProfileDto.email;
-      user.isEmailVerified = false; // Reset verification if email changed
+      if (updateProfileDto.email !== user.email) {
+        user.email = updateProfileDto.email;
+        user.isEmailVerified = false;
+      }
+    }
+    if (updateProfileDto.avatar) {
+      user.avatar = updateProfileDto.avatar;
     }
 
     const updatedUser = await this.userRepository.save(user);
