@@ -61,11 +61,12 @@ export class BooksService {
   }
 
   async getBooks(userId: string): Promise<Book[]> {
-    return this.bookRepository.find({
+    const books = await this.bookRepository.find({
       where: { userId },
-      relations: ['flashcards'],
+      relations: { flashcards: { labelLinks: { label: true } } },
       order: { createdAt: 'DESC' },
     });
+    return books.map((book) => this.prepareBookResponse(book));
   }
 
   async getDueReviewCounts(userId: string): Promise<
@@ -115,7 +116,7 @@ export class BooksService {
   async getBookById(bookId: string, userId: string): Promise<Book> {
     const book = await this.bookRepository.findOne({
       where: { id: bookId },
-      relations: ['flashcards'],
+      relations: { flashcards: { labelLinks: { label: true } } },
     });
 
     if (!book) {
@@ -127,7 +128,7 @@ export class BooksService {
       throw new ForbiddenException('You do not have access to this book');
     }
 
-    return book;
+    return this.prepareBookResponse(book);
   }
 
   async updateBook(
@@ -257,5 +258,18 @@ export class BooksService {
       .trim()
       .split(/\s+/)
       .filter((word) => word.length > 0).length;
+  }
+
+  private prepareBookResponse(book: Book): Book {
+    book.flashcards = (book.flashcards ?? []).map((flashcard) => {
+      flashcard.labels = (flashcard.labelLinks ?? []).map((link) => ({
+        ...link.label,
+        source: link.source,
+        confirmedByUser: link.confirmedByUser,
+      }));
+      delete flashcard.labelLinks;
+      return flashcard;
+    });
+    return book;
   }
 }
