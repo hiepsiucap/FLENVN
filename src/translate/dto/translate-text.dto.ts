@@ -17,6 +17,16 @@ export class TranslateTextDto {
   @MaxLength(5000)
   text!: string;
 
+  @ApiPropertyOptional({
+    example: 'We sat on the bank of the river and watched the sunset.',
+    description:
+      'Full surrounding passage containing the text. Used only to understand context; only text is translated.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  context?: string;
+
   @ApiProperty({
     example: 'vi',
     description: 'Target language code (ISO 639-1)',
