@@ -29,7 +29,7 @@ export class AdminController {
 
   @Get()
   index(@Res() res: Response) {
-    return res.redirect('/api/v1/admin/users');
+    return res.redirect('/admin/users');
   }
 
   @Get('login')
@@ -63,10 +63,10 @@ export class AdminController {
     const secure = this.isSecureRequest(res.req) ? '; Secure' : '';
     res.setHeader(
       'Set-Cookie',
-      `${ADMIN_COOKIE}=${adminToken}; HttpOnly; SameSite=Lax; Path=/api/v1/admin; Max-Age=28800${secure}`,
+      `${ADMIN_COOKIE}=${adminToken}; HttpOnly; SameSite=Lax; Path=/admin; Max-Age=28800${secure}`,
     );
 
-    return res.json({ success: true, redirectTo: '/api/v1/admin/users' });
+    return res.json({ success: true, redirectTo: '/admin/users' });
   }
 
   @Post('logout')
@@ -74,9 +74,9 @@ export class AdminController {
   logout(@Res() res: Response) {
     res.setHeader(
       'Set-Cookie',
-      `${ADMIN_COOKIE}=; HttpOnly; SameSite=Lax; Path=/api/v1/admin; Max-Age=0`,
+      `${ADMIN_COOKIE}=; HttpOnly; SameSite=Lax; Path=/admin; Max-Age=0`,
     );
-    return res.redirect('/api/v1/admin/login');
+    return res.redirect('/admin/login');
   }
 
   @Get('users')
@@ -152,7 +152,7 @@ export class AdminController {
       <button type="submit">Sign in</button>
     </form>
   </main>
-  <script src="/api/v1/admin/login.js" defer></script>
+  <script src="/admin/login.js" defer></script>
 </body>
 </html>`;
   }
@@ -163,7 +163,7 @@ export class AdminController {
       const form = event.currentTarget;
       const error = document.getElementById('error');
       error.textContent = '';
-      const response = await fetch('/api/v1/admin/login', {
+      const response = await fetch('/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -175,7 +175,7 @@ export class AdminController {
         error.textContent = 'Invalid admin login';
         return;
       }
-      window.location.href = '/api/v1/admin/users';
+      window.location.href = '/admin/users';
     });`;
   }
 
@@ -215,7 +215,7 @@ export class AdminController {
       <h1>Users</h1>
       <p>${users.length} accounts · signed in as ${this.escape(admin.email)}</p>
     </div>
-    <form method="post" action="/api/v1/admin/logout"><button type="submit" class="secondary">Sign out</button></form>
+    <form method="post" action="/admin/logout"><button type="submit" class="secondary">Sign out</button></form>
   </header>
   <main class="table-shell">
     <table>
@@ -233,7 +233,7 @@ export class AdminController {
       <tbody>${rows}</tbody>
     </table>
   </main>
-  <script src="/api/v1/admin/users.js" defer></script>
+  <script src="/admin/users.js" defer></script>
 </body>
 </html>`;
   }
@@ -242,7 +242,7 @@ export class AdminController {
     return `document.querySelectorAll('.verify').forEach((button) => {
       button.addEventListener('click', async () => {
         button.disabled = true;
-        const response = await fetch('/api/v1/admin/users/' + button.dataset.userId + '/verify-email', { method: 'POST' });
+        const response = await fetch('/admin/users/' + button.dataset.userId + '/verify-email', { method: 'POST' });
         if (response.ok) {
           window.location.reload();
           return;
