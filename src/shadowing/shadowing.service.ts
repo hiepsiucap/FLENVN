@@ -4,15 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  fetchTranscript,
-  TranscriptResponse,
-  YoutubeTranscriptDisabledError,
-  YoutubeTranscriptNotAvailableError,
-  YoutubeTranscriptNotAvailableLanguageError,
-  YoutubeTranscriptVideoUnavailableError,
-} from 'youtube-transcript';
 import { PrepareShadowingDto } from './dto/prepare-shadowing.dto';
+import {
+  SupadataTranscriptCue,
+  SupadataTranscriptService,
+} from './supadata-transcript.service';
 
 export interface ShadowingSentence {
   id: number;
@@ -29,6 +25,7 @@ export interface ShadowingResponse {
   language: string;
   sentenceCount: number;
   sentences: ShadowingSentence[];
+  transcriptSource: 'supadata';
 }
 
 interface YoutubeOEmbedResponse {
@@ -41,17 +38,27 @@ interface TimedWords {
   endMs: number;
 }
 
+interface ResolvedTranscript {
+  transcript: SupadataTranscriptCue[];
+  language: string;
+}
+
 @Injectable()
 export class ShadowingService {
+  constructor(
+    private readonly supadataTranscriptService: SupadataTranscriptService,
+  ) {}
+
   async prepare(dto: PrepareShadowingDto): Promise<ShadowingResponse> {
     const videoId = this.extractYoutubeVideoId(dto.url);
     const canonicalUrl = `https://www.youtube.com/watch?v=${videoId}`;
     const language = dto.language?.trim() || 'en';
 
-    const [transcript, title] = await Promise.all([
-      this.fetchVideoTranscript(videoId, language),
+    const [resolvedTranscript, title] = await Promise.all([
+      this.fetchVideoTranscript(canonicalUrl, language),
       this.fetchTitle(canonicalUrl),
     ]);
+    const { transcript } = resolvedTranscript;
 
     if (transcript.length === 0) {
       throw new NotFoundException(
@@ -68,9 +75,10 @@ export class ShadowingService {
       videoId,
       url: canonicalUrl,
       title,
-      language,
+      language: resolvedTranscript.language,
       sentenceCount: sentences.length,
       sentences,
+      transcriptSource: 'supadata',
     };
   }
 
@@ -120,32 +128,18 @@ export class ShadowingService {
   }
 
   private async fetchVideoTranscript(
-    videoId: string,
+    videoUrl: string,
     language: string,
-  ): Promise<TranscriptResponse[]> {
-    try {
-      return await fetchTranscript(videoId, {
-        lang: language,
-        fetch: (input, init) =>
-          fetch(input, { ...init, signal: AbortSignal.timeout(8000) }),
-      });
-    } catch (error) {
-      if (
-        error instanceof YoutubeTranscriptDisabledError ||
-        error instanceof YoutubeTranscriptNotAvailableError ||
-        error instanceof YoutubeTranscriptNotAvailableLanguageError ||
-        error instanceof YoutubeTranscriptVideoUnavailableError
-      ) {
-        throw new NotFoundException(
-          `No ${language} transcript is available for this video`,
-        );
-      }
-      throw new BadGatewayException('Could not load the YouTube transcript');
-    }
+  ): Promise<ResolvedTranscript> {
+    const result = await this.supadataTranscriptService.fetchTranscript(
+      videoUrl,
+      language,
+    );
+    return { transcript: result.cues, language: result.language };
   }
 
   private buildSentences(
-    transcript: TranscriptResponse[],
+    transcript: SupadataTranscriptCue[],
     maxWords: number,
   ): ShadowingSentence[] {
     const cues = transcript.flatMap((cue) => this.splitCue(cue));
@@ -186,7 +180,7 @@ export class ShadowingService {
       });
   }
 
-  private splitCue(cue: TranscriptResponse): TimedWords[] {
+  private splitCue(cue: SupadataTranscriptCue): TimedWords[] {
     const text = this.cleanText(cue.text);
     if (!text) return [];
 

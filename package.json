@@ -9,8 +9,6 @@
     "build": "nest build",
     "openapi:generate": "npm run build && node scripts/generate-openapi.js",
     "labels:backfill": "node scripts/backfill-vocabulary-labels.js",
-    "youtube:transcript-poc": "node scripts/youtube-transcript-poc.js",
-    "youtube:natural-word-poc": "node scripts/youtube-natural-word-poc.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "node -r ./scripts/register-tracing.cjs ./node_modules/@nestjs/cli/bin/nest.js start",
     "start:dev": "node -r ./scripts/register-tracing.cjs ./node_modules/@nestjs/cli/bin/nest.js start --watch",
@@ -54,8 +52,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
-    "typeorm": "^0.3.28",
-    "youtube-transcript": "^1.3.1"
+    "typeorm": "^0.3.28"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

@@ -88,6 +88,13 @@ export const validationSchema = Joi.object({
     .integer()
     .min(100)
     .default(3000),
+  SUPADATA_API_KEY: Joi.string().allow('').optional(),
+  SUPADATA_BASE_URL: Joi.string().uri().default('https://api.supadata.ai'),
+  SUPADATA_REQUEST_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(60000)
+    .default(15000),
 
   // Async vocabulary labeling
   AUTO_LABELING_ENABLED: Joi.string().valid('true', 'false').default('false'),

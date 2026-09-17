@@ -73,8 +73,10 @@ The extracted video ID must contain exactly 11 valid YouTube ID characters. Redi
 
 - The default requested language is `en`.
 - A client may provide another caption language code of up to 10 characters.
-- Only captions made available by YouTube are used.
-- Empty, disabled, unavailable, or language-mismatched captions return HTTP `404`.
+- Transcript cues are retrieved through Supadata using the server-side API key.
+- Regional language codes such as `en-GB` are normalized to their ISO 639-1 base code (`en`) for Supadata.
+- If the requested language is unavailable, Supadata may return the first available transcript language; the actual language is returned in the response.
+- Empty, disabled, or unavailable captions return HTTP `404`.
 - Transcript markup and redundant whitespace are removed before segmentation.
 
 ### 7.4 Segmentation
@@ -126,6 +128,7 @@ Successful response: HTTP `200`
   "url": "https://www.youtube.com/watch?v=k2h8PvLY6D4",
   "title": "Example video title",
   "language": "en",
+  "transcriptSource": "supadata",
   "sentenceCount": 2,
   "sentences": [
     {
@@ -148,13 +151,14 @@ Successful response: HTTP `200`
 
 ### Error behavior
 
-| Status | Condition | User-facing meaning |
-| --- | --- | --- |
-| `400` | Missing, malformed, unsupported, or non-YouTube URL | Enter a valid YouTube video link. |
-| `401` | Missing or invalid JWT | Sign in to use shadowing. |
-| `404` | Transcript is empty, disabled, unavailable, or unavailable in the requested language | This video does not have usable captions in the selected language. |
-| `429` | Application or upstream rate limit reached | Wait briefly and try again. |
-| `502` | YouTube metadata or transcript service fails unexpectedly | The video could not be loaded right now. |
+| Status | Condition                                           | User-facing meaning                        |
+| ------ | --------------------------------------------------- | ------------------------------------------ |
+| `400`  | Missing, malformed, unsupported, or non-YouTube URL | Enter a valid YouTube video link.          |
+| `401`  | Missing or invalid JWT                              | Sign in to use shadowing.                  |
+| `404`  | Transcript is empty, disabled, or unavailable       | This video does not have usable captions.  |
+| `429`  | Application or upstream rate limit reached          | Wait briefly and try again.                |
+| `502`  | YouTube metadata or Supadata fails unexpectedly     | The video could not be loaded right now.   |
+| `503`  | `SUPADATA_API_KEY` is not configured                | The transcript provider is not configured. |
 
 Errors follow the application's existing global error response format.
 
@@ -182,7 +186,8 @@ Playback behavior:
 
 - Never fetch a user-provided URL directly.
 - Extract and validate the video ID, then construct known YouTube URLs server-side.
-- Use fixed YouTube API or oEmbed hosts to prevent server-side request forgery.
+- Use fixed YouTube oEmbed and Supadata API hosts to prevent server-side request forgery.
+- Keep `SUPADATA_API_KEY` in the deployment secret store and never return or log it.
 - Apply request timeouts to external calls.
 - Do not expose upstream error bodies or secrets to clients.
 - Do not store video/audio files in the MVP.
@@ -191,8 +196,8 @@ Playback behavior:
 
 ## 11. Performance targets
 
-- A normal preparation request should complete within 5 seconds under typical upstream conditions.
-- External requests should time out within 8 seconds.
+- A normal preparation request should complete within 15 seconds under typical upstream conditions.
+- External requests should use bounded timeouts (8 seconds for title, 15 seconds for transcript by default).
 - Title and transcript requests should run concurrently.
 - The API should avoid returning duplicate transcript representations.
 
@@ -207,7 +212,7 @@ Playback behavior:
 - Segment IDs are sequential and `sentenceCount` matches the array length.
 - Invalid and non-YouTube links return `400` without an upstream request.
 - A video without usable captions returns `404`.
-- Unexpected YouTube failures return `502`.
+- Unexpected YouTube or Supadata failures return `502`.
 - The endpoint is unavailable without valid authentication.
 - Unit tests cover URL extraction, title retrieval, segmentation, long-caption splitting, transcript absence, and upstream failures.
 

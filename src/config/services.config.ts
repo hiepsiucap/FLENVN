@@ -46,6 +46,15 @@ export default registerAs('services', () => ({
     ),
   },
 
+  supadata: {
+    apiKey: process.env.SUPADATA_API_KEY,
+    baseUrl: process.env.SUPADATA_BASE_URL || 'https://api.supadata.ai',
+    requestTimeoutMs: parseInt(
+      process.env.SUPADATA_REQUEST_TIMEOUT_MS || '15000',
+      10,
+    ),
+  },
+
   autoLabeling: {
     enabled: process.env.AUTO_LABELING_ENABLED === 'true',
     queueUrl: process.env.AUTO_LABELING_QUEUE_URL || '',
