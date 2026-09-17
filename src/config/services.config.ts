@@ -59,6 +59,17 @@ export default registerAs('services', () => ({
     ),
   },
 
+  aiChat: {
+    timeoutMs: parseInt(process.env.AI_CHAT_TIMEOUT_MS || '30000', 10),
+    maxInputChars: parseInt(process.env.AI_CHAT_MAX_INPUT_CHARS || '5000', 10),
+    historyMessages: parseInt(process.env.AI_CHAT_HISTORY_MESSAGES || '20', 10),
+    historyChars: parseInt(process.env.AI_CHAT_HISTORY_CHARS || '12000', 10),
+    rateLimitPerMinute: parseInt(
+      process.env.AI_CHAT_RATE_LIMIT_PER_MINUTE || '10',
+      10,
+    ),
+  },
+
   // Image Search Configuration
   pexels: {
     apiKey: process.env.PEXELS_API_KEY,

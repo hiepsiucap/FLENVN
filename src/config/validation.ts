@@ -109,6 +109,29 @@ export const validationSchema = Joi.object({
     .max(1440)
     .default(5),
 
+  // AI Chat
+  AI_CHAT_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(120000)
+    .default(30000),
+  AI_CHAT_MAX_INPUT_CHARS: Joi.number()
+    .integer()
+    .min(100)
+    .max(20000)
+    .default(5000),
+  AI_CHAT_HISTORY_MESSAGES: Joi.number().integer().min(2).max(100).default(20),
+  AI_CHAT_HISTORY_CHARS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(100000)
+    .default(12000),
+  AI_CHAT_RATE_LIMIT_PER_MINUTE: Joi.number()
+    .integer()
+    .min(1)
+    .max(100)
+    .default(10),
+
   // Image Search Configuration
   PEXELS_API_KEY: Joi.string().allow('').optional(),
   UNSPLASH_ACCESS_KEY: Joi.string().allow('').optional(),

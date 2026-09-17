@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 
 const inputPath = path.resolve(__dirname, '..', 'openapi.json');
-const outputPath = path.resolve(__dirname, '..', 'openapi.with-responses.json');
 
 const openapi = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
 openapi.info.description = `${openapi.info.description || 'FLENVN API'} Includes inferred response schemas for frontend integration. Successful responses are wrapped by ResponseInterceptor as { success, data, timestamp }.`;
@@ -827,5 +826,5 @@ for (const [rawPath, pathItem] of Object.entries(openapi.paths)) {
   }
 }
 
-fs.writeFileSync(outputPath, JSON.stringify(openapi, null, 2), 'utf8');
-process.stdout.write(`Wrote ${outputPath}\n`);
+fs.writeFileSync(inputPath, JSON.stringify(openapi, null, 2), 'utf8');
+process.stdout.write(`Enriched ${inputPath}\n`);

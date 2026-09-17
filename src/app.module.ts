@@ -23,6 +23,8 @@ import { TranslateModule } from './translate/translate.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { WordsModule } from './words/words.module';
 import { LabelsModule } from './labels/labels.module';
+import { AiChatModule } from './ai-chat/ai-chat.module';
+import { ShadowingModule } from './shadowing/shadowing.module';
 
 @Module({
   imports: [
@@ -64,6 +66,8 @@ import { LabelsModule } from './labels/labels.module';
     UploadsModule,
     WordsModule,
     LabelsModule,
+    AiChatModule,
+    ShadowingModule,
     AdminModule,
   ],
   controllers: [AppController],

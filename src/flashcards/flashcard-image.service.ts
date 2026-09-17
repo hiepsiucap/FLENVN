@@ -5,6 +5,8 @@ import { FlashCard } from './flashcard.entity';
 interface PexelsSearchResponse {
   photos?: Array<{
     src?: {
+      tiny?: string;
+      small?: string;
       large2x?: string;
       large?: string;
       medium?: string;
@@ -19,6 +21,7 @@ interface PexelsSearchResponse {
 interface UnsplashSearchResponse {
   results?: Array<{
     urls?: {
+      thumb?: string;
       regular?: string;
       full?: string;
       small?: string;
@@ -105,8 +108,14 @@ export class FlashcardImageService {
       return (data.photos || []).reduce<FlashcardImageSuggestion[]>(
         (images, photo) => {
           const src = photo.src;
+          // Use the smallest provider asset to minimize mobile data usage.
           const imageUrl =
-            src?.large2x || src?.large || src?.medium || src?.original;
+            src?.tiny ||
+            src?.small ||
+            src?.medium ||
+            src?.large ||
+            src?.large2x ||
+            src?.original;
 
           if (imageUrl) {
             images.push({
@@ -159,7 +168,9 @@ export class FlashcardImageService {
       return (data.results || []).reduce<FlashcardImageSuggestion[]>(
         (images, photo) => {
           const urls = photo.urls;
-          const imageUrl = urls?.regular || urls?.full || urls?.small;
+          // Use the smallest provider asset to minimize mobile data usage.
+          const imageUrl =
+            urls?.thumb || urls?.small || urls?.regular || urls?.full;
 
           if (imageUrl) {
             images.push({
