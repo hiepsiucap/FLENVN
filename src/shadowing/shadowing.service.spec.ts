@@ -154,7 +154,7 @@ describe('ShadowingService', () => {
     ]);
   });
 
-  it('keeps estimated timestamps monotonic for overlapping cues', async () => {
+  it('normalizes overlapping cues into positive non-overlapping sections', async () => {
     supadataTranscriptService.fetchTranscript.mockResolvedValue({
       language: 'en',
       cues: [
@@ -175,14 +175,35 @@ describe('ShadowingService', () => {
     expect(
       result.sentences.every(
         (sentence, index, all) =>
-          index === 0 || sentence.startSeconds >= all[index - 1].startSeconds,
+          index === 0 || sentence.startSeconds >= all[index - 1].endSeconds,
       ),
     ).toBe(true);
     expect(
       result.sentences.every(
-        (sentence) => sentence.endSeconds >= sentence.startSeconds,
+        (sentence) => sentence.endSeconds > sentence.startSeconds,
       ),
     ).toBe(true);
+  });
+
+  it('removes repeated rolling captions with the same timing', async () => {
+    supadataTranscriptService.fetchTranscript.mockResolvedValue({
+      language: 'en',
+      cues: [
+        { text: 'Laura Bush killed a guy.', offset: 1000, duration: 3000 },
+        { text: '>> Laura Bush killed a guy.', offset: 1000, duration: 3000 },
+        { text: 'Next line.', offset: 4000, duration: 2000 },
+      ],
+    });
+    mockTitle();
+
+    const result = await service.prepare({
+      url: 'https://youtu.be/k2h8PvLY6D4',
+    });
+
+    expect(result.sentences.map(({ text }) => text)).toEqual([
+      'Laura Bush killed a guy.',
+      'Next line.',
+    ]);
   });
 
   it('returns bad gateway when title retrieval fails', async () => {

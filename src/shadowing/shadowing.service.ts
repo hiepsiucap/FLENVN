@@ -156,13 +156,19 @@ export class ShadowingService {
     transcript: SupadataTranscriptCue[],
     maxWords: number,
   ): ShadowingSentence[] {
-    const cues = transcript.flatMap((cue) => this.splitCue(cue));
+    const cues = [...transcript]
+      .sort((left, right) => left.offset - right.offset)
+      .flatMap((cue) => this.splitCue(cue));
     const chunks: TimedWords[] = [];
     let current: TimedWords | undefined;
 
     for (const cue of cues) {
       current = current
-        ? { ...current, text: `${current.text} ${cue.text}`, endMs: cue.endMs }
+        ? {
+            ...current,
+            text: `${current.text} ${cue.text}`,
+            endMs: Math.max(current.endMs, cue.endMs),
+          }
         : { ...cue };
 
       const wordCount = this.wordCount(current.text);
@@ -173,25 +179,81 @@ export class ShadowingService {
     }
     if (current) chunks.push(current);
 
+    return this.normalizeTimings(
+      chunks.flatMap((chunk) => this.splitLongChunk(chunk, maxWords)),
+    ).map((chunk, index) => {
+      const startMs = Math.max(chunk.startMs, 0);
+      const endMs = Math.max(chunk.endMs, startMs);
+      const startSeconds = this.seconds(startMs);
+      const endSeconds = this.seconds(endMs);
+      return {
+        id: index + 1,
+        text: chunk.text,
+        startSeconds,
+        endSeconds,
+        durationSeconds: this.seconds(endMs - startMs),
+      };
+    });
+  }
+
+  private normalizeTimings(chunks: TimedWords[]): TimedWords[] {
+    const unique = chunks.filter(
+      (chunk, index, all) =>
+        !all
+          .slice(0, index)
+          .some(
+            (earlier) =>
+              this.comparableText(earlier.text) ===
+                this.comparableText(chunk.text) &&
+              earlier.startMs < chunk.endMs &&
+              chunk.startMs < earlier.endMs,
+          ),
+    );
     let previousStartMs = 0;
-    return chunks
-      .flatMap((chunk) => this.splitLongChunk(chunk, maxWords))
-      .map((chunk, index) => {
-        // YouTube cues commonly overlap. A long earlier cue can otherwise
-        // produce a later split whose estimated start precedes the next cue.
-        const startMs = Math.max(chunk.startMs, previousStartMs, 0);
-        const endMs = Math.max(chunk.endMs, startMs);
-        previousStartMs = startMs;
-        const startSeconds = this.seconds(startMs);
-        const endSeconds = this.seconds(endMs);
-        return {
-          id: index + 1,
-          text: chunk.text,
-          startSeconds,
-          endSeconds,
-          durationSeconds: this.seconds(endMs - startMs),
-        };
+    const ordered = unique.map((chunk) => {
+      const startMs = Math.max(chunk.startMs, previousStartMs, 0);
+      previousStartMs = startMs;
+      return { ...chunk, startMs };
+    });
+
+    const groups: TimedWords[][] = [];
+    for (const chunk of ordered) {
+      const group = groups.at(-1);
+      if (group && group[0].startMs === chunk.startMs) group.push(chunk);
+      else groups.push([chunk]);
+    }
+
+    return groups.flatMap((group, groupIndex) => {
+      const startMs = Math.max(group[0].startMs, 0);
+      const nextStartMs = groups[groupIndex + 1]?.[0].startMs;
+      const rawEndMs = Math.max(...group.map((chunk) => chunk.endMs));
+      const endMs = Math.max(
+        startMs,
+        nextStartMs === undefined ? rawEndMs : Math.min(rawEndMs, nextStartMs),
+      );
+      const totalWeight = group.reduce(
+        (total, chunk) => total + Math.max(this.wordCount(chunk.text), 1),
+        0,
+      );
+      let elapsedWeight = 0;
+
+      return group.map((chunk) => {
+        const chunkStartMs =
+          startMs + (endMs - startMs) * (elapsedWeight / totalWeight);
+        elapsedWeight += Math.max(this.wordCount(chunk.text), 1);
+        const chunkEndMs =
+          startMs + (endMs - startMs) * (elapsedWeight / totalWeight);
+        return { ...chunk, startMs: chunkStartMs, endMs: chunkEndMs };
       });
+    });
+  }
+
+  private comparableText(value: string): string {
+    return value
+      .replace(/^>>\s*/, '')
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim()
+      .toLocaleLowerCase();
   }
 
   private splitCue(cue: SupadataTranscriptCue): TimedWords[] {
