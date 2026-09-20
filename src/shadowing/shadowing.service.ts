@@ -4,7 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { PrepareShadowingDto } from './dto/prepare-shadowing.dto';
+import { ShadowingVideoMetadata } from './shadowing-video-metadata.entity';
 import {
   SupadataTranscriptCue,
   SupadataTranscriptService,
@@ -47,6 +50,8 @@ interface ResolvedTranscript {
 export class ShadowingService {
   constructor(
     private readonly supadataTranscriptService: SupadataTranscriptService,
+    @InjectRepository(ShadowingVideoMetadata)
+    private readonly videoMetadataRepository: Repository<ShadowingVideoMetadata>,
   ) {}
 
   async prepare(dto: PrepareShadowingDto): Promise<ShadowingResponse> {
@@ -56,7 +61,7 @@ export class ShadowingService {
 
     const [resolvedTranscript, title] = await Promise.all([
       this.fetchVideoTranscript(canonicalUrl, language),
-      this.fetchTitle(canonicalUrl),
+      this.fetchTitle(videoId, canonicalUrl),
     ]);
     const { transcript } = resolvedTranscript;
 
@@ -112,7 +117,12 @@ export class ShadowingService {
     return videoId;
   }
 
-  private async fetchTitle(videoUrl: string): Promise<string> {
+  private async fetchTitle(videoId: string, videoUrl: string): Promise<string> {
+    const cached = await this.videoMetadataRepository.findOne({
+      where: { videoId },
+    });
+    if (cached?.title.trim()) return cached.title.trim();
+
     const url = new URL('https://www.youtube.com/oembed');
     url.searchParams.set('url', videoUrl);
     url.searchParams.set('format', 'json');
@@ -121,7 +131,11 @@ export class ShadowingService {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = (await response.json()) as YoutubeOEmbedResponse;
       if (!data.title?.trim()) throw new Error('Empty title');
-      return data.title.trim();
+      const title = data.title.trim();
+      await this.videoMetadataRepository.upsert({ videoId, title }, [
+        'videoId',
+      ]);
+      return title;
     } catch {
       throw new BadGatewayException('Could not load the YouTube video title');
     }
@@ -151,8 +165,8 @@ export class ShadowingService {
         ? { ...current, text: `${current.text} ${cue.text}`, endMs: cue.endMs }
         : { ...cue };
 
-      const wordCount = current.text.split(/\s+/).length;
-      if (/[.!?]["')\]]?$/.test(current.text) || wordCount >= maxWords) {
+      const wordCount = this.wordCount(current.text);
+      if (this.endsSentence(current.text) || wordCount >= maxWords) {
         chunks.push(current);
         current = undefined;
       }
@@ -193,13 +207,13 @@ export class ShadowingService {
     }
 
     const totalWeight = parts.reduce(
-      (total, part) => total + Math.max(part.split(/\s+/).length, 1),
+      (total, part) => total + Math.max(this.wordCount(part), 1),
       0,
     );
     let elapsedWeight = 0;
     return parts.map((part) => {
       const startRatio = elapsedWeight / totalWeight;
-      elapsedWeight += Math.max(part.split(/\s+/).length, 1);
+      elapsedWeight += Math.max(this.wordCount(part), 1);
       const endRatio = elapsedWeight / totalWeight;
       return {
         text: part,
@@ -215,17 +229,45 @@ export class ShadowingService {
 
     const result: TimedWords[] = [];
     const duration = chunk.endMs - chunk.startMs;
-    for (let start = 0; start < words.length; start += maxWords) {
-      const part = words.slice(start, start + maxWords);
+    for (let start = 0; start < words.length; ) {
+      const end = this.findNaturalSplit(words, start, maxWords);
+      const part = words.slice(start, end);
       const startRatio = start / words.length;
-      const endRatio = Math.min(start + maxWords, words.length) / words.length;
+      const endRatio = end / words.length;
       result.push({
         text: part.join(' '),
         startMs: chunk.startMs + duration * startRatio,
         endMs: chunk.startMs + duration * endRatio,
       });
+      start = end;
     }
     return result;
+  }
+
+  private findNaturalSplit(
+    words: string[],
+    start: number,
+    maxWords: number,
+  ): number {
+    const hardEnd = Math.min(start + maxWords, words.length);
+    if (hardEnd === words.length) return hardEnd;
+
+    const minEnd = Math.min(start + Math.ceil(maxWords * 0.6), hardEnd);
+    for (let index = hardEnd - 1; index >= minEnd; index -= 1) {
+      if (/[,;:]["')\]]?$/.test(words[index])) return index + 1;
+    }
+
+    for (let index = hardEnd - 1; index > minEnd; index -= 1) {
+      if (
+        /^(and|but|or|so|because|then|when|while|that|which)$/i.test(
+          words[index],
+        )
+      ) {
+        return index;
+      }
+    }
+
+    return hardEnd;
   }
 
   private cleanText(value: string): string {
@@ -236,6 +278,14 @@ export class ShadowingService {
       .replace(/&#39;|&apos;/g, "'")
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  private endsSentence(value: string): boolean {
+    return /[.!?]["')\]]?$/.test(value);
+  }
+
+  private wordCount(value: string): number {
+    return value.split(/\s+/).filter(Boolean).length;
   }
 
   private seconds(milliseconds: number): number {

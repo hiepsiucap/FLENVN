@@ -3,14 +3,25 @@ import { ShadowingService } from './shadowing.service';
 
 describe('ShadowingService', () => {
   const supadataTranscriptService = { fetchTranscript: jest.fn() };
-  const service = new ShadowingService(supadataTranscriptService as never);
+  const videoMetadataRepository = {
+    findOne: jest.fn(),
+    upsert: jest.fn(),
+  };
+  const service = new ShadowingService(
+    supadataTranscriptService as never,
+    videoMetadataRepository as never,
+  );
 
   beforeEach(() => {
     supadataTranscriptService.fetchTranscript.mockReset();
+    videoMetadataRepository.findOne.mockReset();
+    videoMetadataRepository.upsert.mockReset();
     supadataTranscriptService.fetchTranscript.mockResolvedValue({
       language: 'en',
       cues: [{ text: 'Hello.', offset: 0, duration: 500, lang: 'en' }],
     });
+    videoMetadataRepository.findOne.mockResolvedValue(null);
+    videoMetadataRepository.upsert.mockResolvedValue(undefined);
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -48,9 +59,29 @@ describe('ShadowingService', () => {
     expect(result.title).toBe('A useful English lesson');
     expect(result.transcriptSource).toBe('supadata');
     expect(result.language).toBe('en');
+    expect(videoMetadataRepository.upsert).toHaveBeenCalledWith(
+      { videoId: 'k2h8PvLY6D4', title: 'A useful English lesson' },
+      ['videoId'],
+    );
     expect(
       result.sentences.every((item) => item.text.split(/\s+/).length <= 5),
     ).toBe(true);
+  });
+
+  it('uses a cached video title instead of calling YouTube oEmbed again', async () => {
+    videoMetadataRepository.findOne.mockResolvedValue({
+      videoId: 'k2h8PvLY6D4',
+      title: 'Cached lesson title',
+    });
+    const fetchSpy = jest.spyOn(global, 'fetch');
+
+    const result = await service.prepare({
+      url: 'https://youtu.be/k2h8PvLY6D4',
+    });
+
+    expect(result.title).toBe('Cached lesson title');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(videoMetadataRepository.upsert).not.toHaveBeenCalled();
   });
 
   it('rejects non-YouTube links before calling Supadata', async () => {
@@ -97,6 +128,30 @@ describe('ShadowingService', () => {
     expect(result.sentences[0].endSeconds).toBe(
       result.sentences[1].startSeconds,
     );
+  });
+
+  it('prefers natural phrase boundaries when a sentence is longer than the word limit', async () => {
+    supadataTranscriptService.fetchTranscript.mockResolvedValue({
+      language: 'en',
+      cues: [
+        {
+          text: 'Practice slowly with the first phrase, then repeat the second phrase with confidence.',
+          offset: 0,
+          duration: 6000,
+        },
+      ],
+    });
+    mockTitle();
+
+    const result = await service.prepare({
+      url: 'https://youtu.be/k2h8PvLY6D4',
+      maxWordsPerSentence: 8,
+    });
+
+    expect(result.sentences.map(({ text }) => text)).toEqual([
+      'Practice slowly with the first phrase,',
+      'then repeat the second phrase with confidence.',
+    ]);
   });
 
   it('keeps estimated timestamps monotonic for overlapping cues', async () => {
