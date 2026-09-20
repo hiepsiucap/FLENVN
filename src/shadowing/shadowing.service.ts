@@ -16,6 +16,9 @@ import {
 export interface ShadowingSentence {
   id: number;
   text: string;
+  offset: number;
+  duration: number;
+  lang?: string;
   startSeconds: number;
   endSeconds: number;
   durationSeconds: number;
@@ -33,12 +36,6 @@ export interface ShadowingResponse {
 
 interface YoutubeOEmbedResponse {
   title?: string;
-}
-
-interface TimedWords {
-  text: string;
-  startMs: number;
-  endMs: number;
 }
 
 interface ResolvedTranscript {
@@ -71,10 +68,16 @@ export class ShadowingService {
       );
     }
 
-    const sentences = this.buildSentences(
-      transcript,
-      dto.maxWordsPerSentence ?? 12,
-    );
+    const sentences = transcript.map((cue, index) => ({
+      id: index + 1,
+      text: cue.text,
+      offset: cue.offset,
+      duration: cue.duration,
+      ...(cue.lang ? { lang: cue.lang } : {}),
+      startSeconds: this.seconds(cue.offset),
+      endSeconds: this.seconds(cue.offset + cue.duration),
+      durationSeconds: this.seconds(cue.duration),
+    }));
 
     return {
       videoId,
@@ -150,204 +153,6 @@ export class ShadowingService {
       language,
     );
     return { transcript: result.cues, language: result.language };
-  }
-
-  private buildSentences(
-    transcript: SupadataTranscriptCue[],
-    maxWords: number,
-  ): ShadowingSentence[] {
-    const cues = [...transcript]
-      .sort((left, right) => left.offset - right.offset)
-      .flatMap((cue) => this.splitCue(cue));
-    const chunks: TimedWords[] = [];
-    let current: TimedWords | undefined;
-
-    for (const cue of cues) {
-      current = current
-        ? {
-            ...current,
-            text: `${current.text} ${cue.text}`,
-            endMs: Math.max(current.endMs, cue.endMs),
-          }
-        : { ...cue };
-
-      const wordCount = this.wordCount(current.text);
-      if (this.endsSentence(current.text) || wordCount >= maxWords) {
-        chunks.push(current);
-        current = undefined;
-      }
-    }
-    if (current) chunks.push(current);
-
-    return this.normalizeTimings(
-      chunks.flatMap((chunk) => this.splitLongChunk(chunk, maxWords)),
-    ).map((chunk, index) => {
-      const startMs = Math.max(chunk.startMs, 0);
-      const endMs = Math.max(chunk.endMs, startMs);
-      const startSeconds = this.seconds(startMs);
-      const endSeconds = this.seconds(endMs);
-      return {
-        id: index + 1,
-        text: chunk.text,
-        startSeconds,
-        endSeconds,
-        durationSeconds: this.seconds(endMs - startMs),
-      };
-    });
-  }
-
-  private normalizeTimings(chunks: TimedWords[]): TimedWords[] {
-    const unique = chunks.filter(
-      (chunk, index, all) =>
-        !all
-          .slice(0, index)
-          .some(
-            (earlier) =>
-              this.comparableText(earlier.text) ===
-                this.comparableText(chunk.text) &&
-              earlier.startMs < chunk.endMs &&
-              chunk.startMs < earlier.endMs,
-          ),
-    );
-    let previousStartMs = 0;
-    const ordered = unique.map((chunk) => {
-      const startMs = Math.max(chunk.startMs, previousStartMs, 0);
-      previousStartMs = startMs;
-      return { ...chunk, startMs };
-    });
-
-    const groups: TimedWords[][] = [];
-    for (const chunk of ordered) {
-      const group = groups.at(-1);
-      if (group && group[0].startMs === chunk.startMs) group.push(chunk);
-      else groups.push([chunk]);
-    }
-
-    return groups.flatMap((group, groupIndex) => {
-      const startMs = Math.max(group[0].startMs, 0);
-      const nextStartMs = groups[groupIndex + 1]?.[0].startMs;
-      const rawEndMs = Math.max(...group.map((chunk) => chunk.endMs));
-      const endMs = Math.max(
-        startMs,
-        nextStartMs === undefined ? rawEndMs : Math.min(rawEndMs, nextStartMs),
-      );
-      const totalWeight = group.reduce(
-        (total, chunk) => total + Math.max(this.wordCount(chunk.text), 1),
-        0,
-      );
-      let elapsedWeight = 0;
-
-      return group.map((chunk) => {
-        const chunkStartMs =
-          startMs + (endMs - startMs) * (elapsedWeight / totalWeight);
-        elapsedWeight += Math.max(this.wordCount(chunk.text), 1);
-        const chunkEndMs =
-          startMs + (endMs - startMs) * (elapsedWeight / totalWeight);
-        return { ...chunk, startMs: chunkStartMs, endMs: chunkEndMs };
-      });
-    });
-  }
-
-  private comparableText(value: string): string {
-    return value
-      .replace(/^>>\s*/, '')
-      .replace(/[^\p{L}\p{N}]+/gu, ' ')
-      .trim()
-      .toLocaleLowerCase();
-  }
-
-  private splitCue(cue: SupadataTranscriptCue): TimedWords[] {
-    const text = this.cleanText(cue.text);
-    if (!text) return [];
-
-    const parts = text
-      .match(/[^.!?]+(?:[.!?]+["')\]]*)?|[.!?]+/g)
-      ?.map((part) => part.trim())
-      .filter(Boolean) ?? [text];
-    if (parts.length === 1) {
-      return [{ text, startMs: cue.offset, endMs: cue.offset + cue.duration }];
-    }
-
-    const totalWeight = parts.reduce(
-      (total, part) => total + Math.max(this.wordCount(part), 1),
-      0,
-    );
-    let elapsedWeight = 0;
-    return parts.map((part) => {
-      const startRatio = elapsedWeight / totalWeight;
-      elapsedWeight += Math.max(this.wordCount(part), 1);
-      const endRatio = elapsedWeight / totalWeight;
-      return {
-        text: part,
-        startMs: cue.offset + cue.duration * startRatio,
-        endMs: cue.offset + cue.duration * endRatio,
-      };
-    });
-  }
-
-  private splitLongChunk(chunk: TimedWords, maxWords: number): TimedWords[] {
-    const words = chunk.text.split(/\s+/);
-    if (words.length <= maxWords) return [chunk];
-
-    const result: TimedWords[] = [];
-    const duration = chunk.endMs - chunk.startMs;
-    for (let start = 0; start < words.length; ) {
-      const end = this.findNaturalSplit(words, start, maxWords);
-      const part = words.slice(start, end);
-      const startRatio = start / words.length;
-      const endRatio = end / words.length;
-      result.push({
-        text: part.join(' '),
-        startMs: chunk.startMs + duration * startRatio,
-        endMs: chunk.startMs + duration * endRatio,
-      });
-      start = end;
-    }
-    return result;
-  }
-
-  private findNaturalSplit(
-    words: string[],
-    start: number,
-    maxWords: number,
-  ): number {
-    const hardEnd = Math.min(start + maxWords, words.length);
-    if (hardEnd === words.length) return hardEnd;
-
-    const minEnd = Math.min(start + Math.ceil(maxWords * 0.6), hardEnd);
-    for (let index = hardEnd - 1; index >= minEnd; index -= 1) {
-      if (/[,;:]["')\]]?$/.test(words[index])) return index + 1;
-    }
-
-    for (let index = hardEnd - 1; index > minEnd; index -= 1) {
-      if (
-        /^(and|but|or|so|because|then|when|while|that|which)$/i.test(
-          words[index],
-        )
-      ) {
-        return index;
-      }
-    }
-
-    return hardEnd;
-  }
-
-  private cleanText(value: string): string {
-    return value
-      .replace(/<[^>]+>/g, '')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;|&apos;/g, "'")
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  private endsSentence(value: string): boolean {
-    return /[.!?]["')\]]?$/.test(value);
-  }
-
-  private wordCount(value: string): number {
-    return value.split(/\s+/).filter(Boolean).length;
   }
 
   private seconds(milliseconds: number): number {

@@ -32,11 +32,16 @@ describe('ShadowingService', () => {
       json: async () => ({ title }),
     } as Response);
 
-  it('returns title and short timestamped sentences from Supadata', async () => {
+  it('returns Supadata cues unchanged with the video metadata', async () => {
     supadataTranscriptService.fetchTranscript.mockResolvedValue({
       language: 'en',
       cues: [
-        { text: 'This is a short sentence.', offset: 0, duration: 2000 },
+        {
+          text: 'This is a short sentence.',
+          offset: 0,
+          duration: 2000,
+          lang: 'en',
+        },
         {
           text: 'This caption has more words than we want in one shadowing sentence',
           offset: 2000,
@@ -63,9 +68,27 @@ describe('ShadowingService', () => {
       { videoId: 'k2h8PvLY6D4', title: 'A useful English lesson' },
       ['videoId'],
     );
-    expect(
-      result.sentences.every((item) => item.text.split(/\s+/).length <= 5),
-    ).toBe(true);
+    expect(result.sentences).toEqual([
+      {
+        id: 1,
+        text: 'This is a short sentence.',
+        offset: 0,
+        duration: 2000,
+        lang: 'en',
+        startSeconds: 0,
+        endSeconds: 2,
+        durationSeconds: 2,
+      },
+      {
+        id: 2,
+        text: 'This caption has more words than we want in one shadowing sentence',
+        offset: 2000,
+        duration: 4000,
+        startSeconds: 2,
+        endSeconds: 6,
+        durationSeconds: 4,
+      },
+    ]);
   });
 
   it('uses a cached video title instead of calling YouTube oEmbed again', async () => {
@@ -105,7 +128,7 @@ describe('ShadowingService', () => {
     expect(result.videoId).toBe('k2h8PvLY6D4');
   });
 
-  it('separates multiple punctuated sentences inside one cue', async () => {
+  it('does not split, merge, deduplicate, or normalize Supadata cues', async () => {
     supadataTranscriptService.fetchTranscript.mockResolvedValue({
       language: 'en',
       cues: [
@@ -114,30 +137,15 @@ describe('ShadowingService', () => {
           offset: 0,
           duration: 4000,
         },
-      ],
-    });
-    mockTitle();
-
-    const result = await service.prepare({
-      url: 'https://youtu.be/k2h8PvLY6D4',
-    });
-    expect(result.sentences.map(({ text }) => text)).toEqual([
-      'Listen carefully.',
-      'Now repeat after me!',
-    ]);
-    expect(result.sentences[0].endSeconds).toBe(
-      result.sentences[1].startSeconds,
-    );
-  });
-
-  it('prefers natural phrase boundaries when a sentence is longer than the word limit', async () => {
-    supadataTranscriptService.fetchTranscript.mockResolvedValue({
-      language: 'en',
-      cues: [
         {
-          text: 'Practice slowly with the first phrase, then repeat the second phrase with confidence.',
-          offset: 0,
-          duration: 6000,
+          text: 'Same caption.',
+          offset: 2000,
+          duration: 3000,
+        },
+        {
+          text: '>> Same caption.',
+          offset: 2000,
+          duration: 3000,
         },
       ],
     });
@@ -145,64 +153,35 @@ describe('ShadowingService', () => {
 
     const result = await service.prepare({
       url: 'https://youtu.be/k2h8PvLY6D4',
-      maxWordsPerSentence: 8,
     });
-
-    expect(result.sentences.map(({ text }) => text)).toEqual([
-      'Practice slowly with the first phrase,',
-      'then repeat the second phrase with confidence.',
-    ]);
-  });
-
-  it('normalizes overlapping cues into positive non-overlapping sections', async () => {
-    supadataTranscriptService.fetchTranscript.mockResolvedValue({
-      language: 'en',
-      cues: [
-        {
-          text: 'This earlier caption contains enough words to require splitting',
-          offset: 0,
-          duration: 6000,
-        },
-        { text: 'Next caption.', offset: 3000, duration: 2000 },
-      ],
-    });
-    mockTitle();
-
-    const result = await service.prepare({
-      url: 'https://youtu.be/k2h8PvLY6D4',
-      maxWordsPerSentence: 5,
-    });
-    expect(
-      result.sentences.every(
-        (sentence, index, all) =>
-          index === 0 || sentence.startSeconds >= all[index - 1].endSeconds,
-      ),
-    ).toBe(true);
-    expect(
-      result.sentences.every(
-        (sentence) => sentence.endSeconds > sentence.startSeconds,
-      ),
-    ).toBe(true);
-  });
-
-  it('removes repeated rolling captions with the same timing', async () => {
-    supadataTranscriptService.fetchTranscript.mockResolvedValue({
-      language: 'en',
-      cues: [
-        { text: 'Laura Bush killed a guy.', offset: 1000, duration: 3000 },
-        { text: '>> Laura Bush killed a guy.', offset: 1000, duration: 3000 },
-        { text: 'Next line.', offset: 4000, duration: 2000 },
-      ],
-    });
-    mockTitle();
-
-    const result = await service.prepare({
-      url: 'https://youtu.be/k2h8PvLY6D4',
-    });
-
-    expect(result.sentences.map(({ text }) => text)).toEqual([
-      'Laura Bush killed a guy.',
-      'Next line.',
+    expect(result.sentences).toEqual([
+      {
+        id: 1,
+        text: 'Listen carefully. Now repeat after me!',
+        offset: 0,
+        duration: 4000,
+        startSeconds: 0,
+        endSeconds: 4,
+        durationSeconds: 4,
+      },
+      {
+        id: 2,
+        text: 'Same caption.',
+        offset: 2000,
+        duration: 3000,
+        startSeconds: 2,
+        endSeconds: 5,
+        durationSeconds: 3,
+      },
+      {
+        id: 3,
+        text: '>> Same caption.',
+        offset: 2000,
+        duration: 3000,
+        startSeconds: 2,
+        endSeconds: 5,
+        durationSeconds: 3,
+      },
     ]);
   });
 

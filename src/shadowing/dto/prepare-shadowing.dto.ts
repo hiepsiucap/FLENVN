@@ -21,6 +21,7 @@ export class PrepareShadowingDto {
   @MaxLength(10)
   language?: string;
 
+  // Accepted for backward compatibility; cues are no longer split by words.
   @ApiPropertyOptional({ example: 12, default: 12, minimum: 3, maximum: 20 })
   @IsOptional()
   @IsInt()
