@@ -69,6 +69,9 @@ export class FlashCard {
   })
   imageUrl!: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  imageKey!: string | null;
+
   @Column('text', { nullable: true })
   example!: string | null;
 

@@ -8,6 +8,7 @@ import { BooksModule } from '../books/books.module';
 import { FlashcardImageService } from './flashcard-image.service';
 import { FlashcardAudioService } from './flashcard-audio.service';
 import { LabelsModule } from '../labels/labels.module';
+import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { LabelsModule } from '../labels/labels.module';
     SubscriptionsModule,
     BooksModule,
     LabelsModule,
+    UploadsModule,
   ],
   controllers: [FlashcardsController],
   providers: [FlashcardsService, FlashcardImageService, FlashcardAudioService],

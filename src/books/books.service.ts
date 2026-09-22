@@ -11,6 +11,7 @@ import { FlashCardStatus } from '../flashcards/flashcard.entity';
 import { Book } from './book.entity';
 import { CreateBookDto } from './dto/create-book.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
+import { ManagedImageService } from '../uploads/managed-image.service';
 
 @Injectable()
 export class BooksService {
@@ -18,6 +19,7 @@ export class BooksService {
     @InjectRepository(Book)
     private readonly bookRepository: Repository<Book>,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly managedImageService: ManagedImageService,
   ) {}
 
   async createBook(
@@ -44,12 +46,21 @@ export class BooksService {
       );
     }
 
+    const managedCover = createBookDto.coverImage
+      ? await this.managedImageService.normalizeExternalUrl(
+          userId,
+          createBookDto.coverImage,
+          'book',
+        )
+      : undefined;
+
     // Create book
     const book = this.bookRepository.create({
       ...createBookDto,
       userId,
       wordCount,
-      coverImage: createBookDto.coverImage || Book.DEFAULT_COVER_IMAGE_URL,
+      coverImage: managedCover?.fileUrl || Book.DEFAULT_COVER_IMAGE_URL,
+      coverImageKey: managedCover?.objectKey || 'images/logo.png',
     });
 
     const savedBook = await this.bookRepository.save(book);
@@ -147,6 +158,16 @@ export class BooksService {
     // Verify ownership
     if (book.userId !== userId) {
       throw new ForbiddenException('You can only update your own books');
+    }
+
+    if (updateBookDto.coverImage !== undefined) {
+      const managedCover = await this.managedImageService.normalizeExternalUrl(
+        userId,
+        updateBookDto.coverImage,
+        'book',
+      );
+      updateBookDto.coverImage = managedCover.fileUrl;
+      book.coverImageKey = managedCover.objectKey;
     }
 
     // Calculate word count change if content is updated

@@ -19,6 +19,7 @@ import { LabelsService } from '../labels/labels.service';
 import { LabelingQueueService } from '../labels/labeling-queue.service';
 import { isUUID } from 'class-validator';
 import { LabelSource } from '../labels/flashcard-label.entity';
+import { ManagedImageService } from '../uploads/managed-image.service';
 
 interface FlashcardStatsRow {
   new: string | number | null;
@@ -45,6 +46,7 @@ export class FlashcardsService {
     private readonly flashcardAudioService: FlashcardAudioService,
     private readonly labelsService: LabelsService,
     private readonly labelingQueueService: LabelingQueueService,
+    private readonly managedImageService: ManagedImageService,
   ) {}
 
   async createFlashcard(
@@ -95,10 +97,18 @@ export class FlashcardsService {
     if (labelIds) await this.labelsService.getOwnedLabels(userId, labelIds);
 
     const shouldAutoLabel = autoLabel && this.labelingQueueService.isEnabled();
+    const managedImage = flashcardData.imageUrl
+      ? await this.managedImageService.normalizeExternalUrl(
+          userId,
+          flashcardData.imageUrl,
+          'flashcard',
+        )
+      : undefined;
     const flashcard = this.flashcardRepository.create({
       ...flashcardData,
       userId,
-      imageUrl: flashcardData.imageUrl || FlashCard.DEFAULT_IMAGE_URL,
+      imageUrl: managedImage?.fileUrl || FlashCard.DEFAULT_IMAGE_URL,
+      imageKey: managedImage?.objectKey || 'images/logo.png',
       easeFactor: 2.5, // SM-2 algorithm default
       interval: 1,
       repetitions: 0,
@@ -254,6 +264,7 @@ export class FlashcardsService {
 
     if (wordChanged && flashcardData.imageUrl === undefined) {
       flashcard.imageUrl = FlashCard.DEFAULT_IMAGE_URL;
+      flashcard.imageKey = 'images/logo.png';
     }
 
     if (exampleChanged && flashcardData.exampleAudioUrl === undefined) {
@@ -263,6 +274,15 @@ export class FlashcardsService {
     // Update fields
     if (labelIds) await this.labelsService.getOwnedLabels(userId, labelIds);
 
+    if (flashcardData.imageUrl !== undefined) {
+      const managedImage = await this.managedImageService.normalizeExternalUrl(
+        userId,
+        flashcardData.imageUrl,
+        'flashcard',
+      );
+      flashcardData.imageUrl = managedImage.fileUrl;
+      flashcard.imageKey = managedImage.objectKey;
+    }
     Object.assign(flashcard, flashcardData);
     const shouldRelabel =
       labelingContentChanged && this.labelingQueueService.isEnabled();

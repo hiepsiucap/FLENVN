@@ -36,6 +36,9 @@ export class Book {
   })
   coverImage!: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  coverImageKey!: string | null;
+
   @Column({ type: 'text', nullable: true })
   content!: string | null; // Main book content/text
 

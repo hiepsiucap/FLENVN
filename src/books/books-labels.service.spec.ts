@@ -40,6 +40,7 @@ describe('BooksService flashcard labels', () => {
     const service = new BooksService(
       repository as unknown as Repository<Book>,
       {} as never,
+      {} as never,
     );
     return { service, repository };
   }

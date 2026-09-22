@@ -25,6 +25,7 @@ import { UpdateBookDto } from './dto/update-book.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../auth/interfaces/authenticated-request.interface';
 import { BufferedUploadFile, UploadsService } from '../uploads/uploads.service';
+import { ManagedImageService } from '../uploads/managed-image.service';
 
 @ApiTags('Books')
 @ApiBearerAuth('jwt-auth')
@@ -34,6 +35,7 @@ export class BooksController {
     private readonly booksService: BooksService,
     private readonly uploadsService: UploadsService,
     private readonly bookBackgroundService: BookBackgroundService,
+    private readonly managedImageService: ManagedImageService,
   ) {}
 
   @Post()
@@ -77,11 +79,10 @@ export class BooksController {
     const dto: CreateBookDto = { ...createBookDto };
 
     if (coverImage) {
-      const upload = await this.uploadsService.uploadFile(
+      const upload = await this.managedImageService.storeBuffer(
         req.user.id,
-        coverImage,
-        'book-covers',
-        ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+        coverImage.buffer,
+        'book',
       );
       dto.coverImage = upload.fileUrl;
     }

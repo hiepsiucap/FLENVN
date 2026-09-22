@@ -57,6 +57,28 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
+## Optimize existing images
+
+The image migration is read-only unless `--apply` is supplied. It creates
+small WebP copies for existing flashcard images and book covers, updates the
+matching database URLs, and keeps the original S3 objects.
+
+```bash
+# Preview how many records are eligible
+$ npm run images:optimize-existing
+
+# Optimize both flashcards and book covers
+$ npm run images:optimize-existing -- --apply
+
+# Optionally run one type at a time
+$ npm run images:optimize-existing -- --apply --only=flashcards
+$ npm run images:optimize-existing -- --apply --only=books
+```
+
+Run it from an environment that can connect to PostgreSQL and has the configured
+S3 write credentials. Re-running it is safe: migrated URLs are skipped, and a
+record is updated only if its source URL did not change while it was processed.
+
 ## Grafana Cloud tracing
 
 The API is instrumented with OpenTelemetry for NestJS/Express HTTP traffic,

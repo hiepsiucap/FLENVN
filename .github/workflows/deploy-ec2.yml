@@ -56,6 +56,7 @@ jobs:
             dist \
             scripts/register-tracing.cjs \
             scripts/backfill-vocabulary-labels.js \
+            scripts/optimize-existing-images.js \
             package.json \
             package-lock.json \
             ecosystem.config.cjs

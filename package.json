@@ -9,6 +9,7 @@
     "build": "nest build",
     "openapi:generate": "npm run build && node scripts/generate-openapi.js",
     "labels:backfill": "node scripts/backfill-vocabulary-labels.js",
+    "images:optimize-existing": "node scripts/optimize-existing-images.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "node -r ./scripts/register-tracing.cjs ./node_modules/@nestjs/cli/bin/nest.js start",
     "start:dev": "node -r ./scripts/register-tracing.cjs ./node_modules/@nestjs/cli/bin/nest.js start --watch",
@@ -51,6 +52,7 @@
     "pg": "^8.17.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.34.5",
     "swagger-ui-express": "^5.0.1",
     "typeorm": "^0.3.28"
   },

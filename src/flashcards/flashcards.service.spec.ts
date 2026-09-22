@@ -25,6 +25,9 @@ describe('FlashcardsService extension save safeguards', () => {
     isEnabled: jest.fn().mockReturnValue(false),
     publish: jest.fn(),
   };
+  const managedImageService = {
+    normalizeExternalUrl: jest.fn(),
+  };
 
   let service: FlashcardsService;
 
@@ -38,6 +41,7 @@ describe('FlashcardsService extension save safeguards', () => {
       flashcardAudioService as never,
       labelsService as never,
       labelingQueueService as never,
+      managedImageService as never,
     );
   });
 

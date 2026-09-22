@@ -1,0 +1,55 @@
+name: Migrate existing images
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Run a dry run or apply database/S3 changes
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      only:
+        description: Records to process
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - flashcards
+          - books
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+      - name: Run image migration
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
+          MODE: ${{ inputs.mode }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          set -euo pipefail
+          APPLY=""
+          if [ "$MODE" = "apply" ]; then APPLY="--apply"; fi
+          ssh -i ~/.ssh/ec2_key "$EC2_USER@$EC2_HOST" \
+            "cd '$EC2_APP_DIR' && node scripts/optimize-existing-images.js $APPLY --only='$ONLY'"
