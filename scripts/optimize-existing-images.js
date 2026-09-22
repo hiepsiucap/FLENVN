@@ -221,6 +221,7 @@ async function getRows(pool, target, afterId, limit) {
       FROM "${target.table}"
       WHERE "${target.column}" IS NOT NULL
         AND "${target.column}" <> ''
+        AND "${target.column}" NOT LIKE '%/images/logo.png%'
         AND "${target.column}" NOT LIKE '%/optimized-images/%'
         ${cursorSql}
       ORDER BY "id"
@@ -237,6 +238,7 @@ async function countRows(pool, target) {
       FROM "${target.table}"
       WHERE "${target.column}" IS NOT NULL
         AND "${target.column}" <> ''
+        AND "${target.column}" NOT LIKE '%/images/logo.png%'
         AND "${target.column}" NOT LIKE '%/optimized-images/%'
     `,
   );
