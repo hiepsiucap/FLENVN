@@ -245,16 +245,36 @@ async function countRows(pool, target) {
   return result.rows[0].count;
 }
 
-async function updateRow(pool, target, row, optimizedUrl, objectKey) {
-  const result = await pool.query(
-    `
-      UPDATE "${target.table}"
-      SET "${target.column}" = $1, "${target.keyColumn}" = $2
-      WHERE "id" = $3 AND "${target.column}" = $4
-    `,
-    [optimizedUrl, objectKey, row.id, row.sourceUrl],
-  );
-  return result.rowCount === 1;
+async function updateRow(pool, name, target, row, optimizedUrl, objectKey) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `
+        UPDATE "${target.table}"
+        SET "${target.column}" = $1, "${target.keyColumn}" = $2
+        WHERE "id" = $3 AND "${target.column}" = $4
+      `,
+      [optimizedUrl, objectKey, row.id, row.sourceUrl],
+    );
+    if (result.rowCount === 1) {
+      await client.query(
+        `
+          INSERT INTO "image_migration_audit"
+            ("entityType", "recordId", "oldUrl", "newUrl", "objectKey")
+          VALUES ($1, $2, $3, $4, $5)
+        `,
+        [name, row.id, row.sourceUrl, optimizedUrl, objectKey],
+      );
+    }
+    await client.query('COMMIT');
+    return result.rowCount === 1;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function mapConcurrent(items, concurrency, operation) {
@@ -345,6 +365,7 @@ async function migrateTarget(context, name, target) {
         const asset = await optimizedAssets.get(cacheKey);
         const changed = await updateRow(
           pool,
+          name,
           target,
           row,
           asset.url,
