@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PrepareShadowingDto } from './dto/prepare-shadowing.dto';
 import { ShadowingVideoMetadata } from './shadowing-video-metadata.entity';
+import { ShadowingRecentVideo } from './shadowing-recent-video.entity';
 import {
   SupadataTranscriptCue,
   SupadataTranscriptService,
@@ -34,6 +35,14 @@ export interface ShadowingResponse {
   transcriptSource: 'supadata';
 }
 
+export interface RecentShadowingVideoResponse {
+  videoId: string;
+  url: string;
+  title: string;
+  language: string;
+  lastOpenedAt: Date;
+}
+
 interface YoutubeOEmbedResponse {
   title?: string;
 }
@@ -49,9 +58,14 @@ export class ShadowingService {
     private readonly supadataTranscriptService: SupadataTranscriptService,
     @InjectRepository(ShadowingVideoMetadata)
     private readonly videoMetadataRepository: Repository<ShadowingVideoMetadata>,
+    @InjectRepository(ShadowingRecentVideo)
+    private readonly recentVideoRepository: Repository<ShadowingRecentVideo>,
   ) {}
 
-  async prepare(dto: PrepareShadowingDto): Promise<ShadowingResponse> {
+  async prepare(
+    userId: string,
+    dto: PrepareShadowingDto,
+  ): Promise<ShadowingResponse> {
     const videoId = this.extractYoutubeVideoId(dto.url);
     const canonicalUrl = `https://www.youtube.com/watch?v=${videoId}`;
     const language = dto.language?.trim() || 'en';
@@ -79,6 +93,17 @@ export class ShadowingService {
       durationSeconds: this.seconds(cue.duration),
     }));
 
+    await this.recentVideoRepository.upsert(
+      {
+        userId,
+        videoId,
+        url: canonicalUrl,
+        title,
+        language: resolvedTranscript.language,
+      },
+      ['userId', 'videoId'],
+    );
+
     return {
       videoId,
       url: canonicalUrl,
@@ -88,6 +113,25 @@ export class ShadowingService {
       sentences,
       transcriptSource: 'supadata',
     };
+  }
+
+  async getRecent(
+    userId: string,
+    limit = 10,
+  ): Promise<RecentShadowingVideoResponse[]> {
+    const videos = await this.recentVideoRepository.find({
+      where: { userId },
+      order: { updatedAt: 'DESC' },
+      take: limit,
+    });
+
+    return videos.map((video) => ({
+      videoId: video.videoId,
+      url: video.url,
+      title: video.title,
+      language: video.language,
+      lastOpenedAt: video.updatedAt,
+    }));
   }
 
   private extractYoutubeVideoId(value: string): string {

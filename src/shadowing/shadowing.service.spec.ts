@@ -7,21 +7,30 @@ describe('ShadowingService', () => {
     findOne: jest.fn(),
     upsert: jest.fn(),
   };
+  const recentVideoRepository = {
+    find: jest.fn(),
+    upsert: jest.fn(),
+  };
   const service = new ShadowingService(
     supadataTranscriptService as never,
     videoMetadataRepository as never,
+    recentVideoRepository as never,
   );
 
   beforeEach(() => {
     supadataTranscriptService.fetchTranscript.mockReset();
     videoMetadataRepository.findOne.mockReset();
     videoMetadataRepository.upsert.mockReset();
+    recentVideoRepository.find.mockReset();
+    recentVideoRepository.upsert.mockReset();
     supadataTranscriptService.fetchTranscript.mockResolvedValue({
       language: 'en',
       cues: [{ text: 'Hello.', offset: 0, duration: 500, lang: 'en' }],
     });
     videoMetadataRepository.findOne.mockResolvedValue(null);
     videoMetadataRepository.upsert.mockResolvedValue(undefined);
+    recentVideoRepository.find.mockResolvedValue([]);
+    recentVideoRepository.upsert.mockResolvedValue(undefined);
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -29,7 +38,7 @@ describe('ShadowingService', () => {
   const mockTitle = (title = 'Video title') =>
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({ title }),
+      json: () => Promise.resolve({ title }),
     } as Response);
 
   it('returns Supadata cues unchanged with the video metadata', async () => {
@@ -51,7 +60,7 @@ describe('ShadowingService', () => {
     });
     mockTitle('A useful English lesson');
 
-    const result = await service.prepare({
+    const result = await service.prepare('user-1', {
       url: 'https://youtu.be/k2h8PvLY6D4',
       language: 'en-GB',
       maxWordsPerSentence: 5,
@@ -67,6 +76,16 @@ describe('ShadowingService', () => {
     expect(videoMetadataRepository.upsert).toHaveBeenCalledWith(
       { videoId: 'k2h8PvLY6D4', title: 'A useful English lesson' },
       ['videoId'],
+    );
+    expect(recentVideoRepository.upsert).toHaveBeenCalledWith(
+      {
+        userId: 'user-1',
+        videoId: 'k2h8PvLY6D4',
+        url: 'https://www.youtube.com/watch?v=k2h8PvLY6D4',
+        title: 'A useful English lesson',
+        language: 'en',
+      },
+      ['userId', 'videoId'],
     );
     expect(result.sentences).toEqual([
       {
@@ -98,7 +117,7 @@ describe('ShadowingService', () => {
     });
     const fetchSpy = jest.spyOn(global, 'fetch');
 
-    const result = await service.prepare({
+    const result = await service.prepare('user-1', {
       url: 'https://youtu.be/k2h8PvLY6D4',
     });
 
@@ -109,7 +128,7 @@ describe('ShadowingService', () => {
 
   it('rejects non-YouTube links before calling Supadata', async () => {
     await expect(
-      service.prepare({ url: 'https://example.com/video' }),
+      service.prepare('user-1', { url: 'https://example.com/video' }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(supadataTranscriptService.fetchTranscript).not.toHaveBeenCalled();
   });
@@ -124,7 +143,7 @@ describe('ShadowingService', () => {
     'https://www.youtube.com/live/k2h8PvLY6D4',
   ])('accepts supported YouTube URL %s', async (url) => {
     mockTitle();
-    const result = await service.prepare({ url });
+    const result = await service.prepare('user-1', { url });
     expect(result.videoId).toBe('k2h8PvLY6D4');
   });
 
@@ -151,7 +170,7 @@ describe('ShadowingService', () => {
     });
     mockTitle();
 
-    const result = await service.prepare({
+    const result = await service.prepare('user-1', {
       url: 'https://youtu.be/k2h8PvLY6D4',
     });
     expect(result.sentences).toEqual([
@@ -188,7 +207,38 @@ describe('ShadowingService', () => {
   it('returns bad gateway when title retrieval fails', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue({ ok: false } as Response);
     await expect(
-      service.prepare({ url: 'https://youtu.be/k2h8PvLY6D4' }),
+      service.prepare('user-1', {
+        url: 'https://youtu.be/k2h8PvLY6D4',
+      }),
     ).rejects.toBeInstanceOf(BadGatewayException);
+    expect(recentVideoRepository.upsert).not.toHaveBeenCalled();
+  });
+
+  it('returns only the current user recent videos in most-recent order', async () => {
+    const lastOpenedAt = new Date('2026-09-23T10:00:00.000Z');
+    recentVideoRepository.find.mockResolvedValue([
+      {
+        videoId: 'k2h8PvLY6D4',
+        url: 'https://www.youtube.com/watch?v=k2h8PvLY6D4',
+        title: 'Recent lesson',
+        language: 'en',
+        updatedAt: lastOpenedAt,
+      },
+    ]);
+
+    await expect(service.getRecent('user-1', 5)).resolves.toEqual([
+      {
+        videoId: 'k2h8PvLY6D4',
+        url: 'https://www.youtube.com/watch?v=k2h8PvLY6D4',
+        title: 'Recent lesson',
+        language: 'en',
+        lastOpenedAt,
+      },
+    ]);
+    expect(recentVideoRepository.find).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+      order: { updatedAt: 'DESC' },
+      take: 5,
+    });
   });
 });

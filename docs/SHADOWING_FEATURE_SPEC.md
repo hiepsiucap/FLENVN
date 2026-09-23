@@ -10,6 +10,7 @@ The shadowing feature lets a signed-in learner paste a YouTube video link and re
 - Retrieve the video's title and transcript.
 - Divide the transcript into short, natural practice segments.
 - Preserve timestamps so each segment can be replayed from the source video.
+- Save each user's successfully prepared videos and list the most recent ones.
 - Return a stable API response suitable for a mobile or web shadowing player.
 - Give the user clear feedback when a video or transcript cannot be used.
 
@@ -38,7 +39,8 @@ As an English learner, I want to paste a YouTube link and receive short transcri
 5. The server validates the URL and loads the title and transcript.
 6. The server divides the transcript into short, timestamped segments.
 7. The client displays the video title and the first segment.
-8. The learner plays the segment, repeats it, and moves backward or forward between segments.
+8. The server adds the video to the user's recent history.
+9. The learner plays the segment, repeats it, and moves backward or forward between segments.
 
 ## 6. Supported links
 
@@ -102,6 +104,14 @@ Segmentation rules:
 
 The word limit is a safety limit, not a guarantee that every segment is a grammatically complete sentence. YouTube captions may lack punctuation or word-level timing.
 
+### 7.5 Recent videos
+
+- A successfully prepared video is saved to the authenticated user's history.
+- Preparing the same video again updates its title, language, and last-opened time instead of creating a duplicate.
+- Failed preparation requests do not change recent history.
+- Each user can only retrieve their own history.
+- The list is ordered by most recently opened and supports a limit from 1 through 50, defaulting to 10.
+
 ## 8. API contract
 
 ### Prepare a video
@@ -147,6 +157,26 @@ Successful response: HTTP `200`
     }
   ]
 }
+```
+
+### List recent videos
+
+`GET /api/v1/shadowing/recent?limit=10`
+
+Authentication: JWT bearer token required.
+
+Successful response: HTTP `200`
+
+```json
+[
+  {
+    "videoId": "k2h8PvLY6D4",
+    "url": "https://www.youtube.com/watch?v=k2h8PvLY6D4",
+    "title": "Example video title",
+    "language": "en",
+    "lastOpenedAt": "2026-09-23T10:00:00.000Z"
+  }
+]
 ```
 
 ### Error behavior
@@ -214,13 +244,16 @@ Playback behavior:
 - A video without usable captions returns `404`.
 - Unexpected YouTube or Supadata failures return `502`.
 - The endpoint is unavailable without valid authentication.
+- A successful preparation appears first in that user's recent-video list.
+- Preparing the same video twice leaves one history item with a newer last-opened time.
+- Recent-video results never include another user's history.
 - Unit tests cover URL extraction, title retrieval, segmentation, long-caption splitting, transcript absence, and upstream failures.
 
 ## 13. Future phases
 
 Possible follow-up work:
 
-- Save videos and learning progress.
+- Save detailed learning progress within each video.
 - Add transcript translation and vocabulary lookup.
 - Record the learner and compare speech with the target sentence.
 - Add pronunciation and fluency scores.
@@ -232,7 +265,7 @@ Possible follow-up work:
 
 Before extending beyond the MVP, decide:
 
-- Whether prepared videos and progress should be persisted.
+- Which per-video learning progress should be persisted.
 - Whether the initial UI needs translation alongside each sentence.
 - Whether auto-generated YouTube captions are acceptable or only human captions should be used.
 - Whether Shorts and YouTube Music should remain supported in the UI.
