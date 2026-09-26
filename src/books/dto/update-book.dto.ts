@@ -2,6 +2,8 @@ import {
   IsString,
   IsOptional,
   IsBoolean,
+  IsUUID,
+  ValidateIf,
   MinLength,
   MaxLength,
 } from 'class-validator';
@@ -18,6 +20,15 @@ export class UpdateBookDto {
   @MinLength(3)
   @MaxLength(255)
   title?: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+    description: 'Top-level parent book ID, or null to move to top level',
+  })
+  @ValidateIf((_, value) => value !== undefined && value !== null)
+  @IsUUID('4')
+  parentBookId?: string | null;
 
   @ApiPropertyOptional({ example: 'Updated description' })
   @IsOptional()

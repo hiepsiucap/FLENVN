@@ -53,6 +53,11 @@ export class BooksController {
       required: ['title'],
       properties: {
         title: { type: 'string', example: 'English Basics' },
+        parentBookId: {
+          type: 'string',
+          format: 'uuid',
+          description: 'Top-level parent book ID',
+        },
         description: { type: 'string', example: 'A beginner guide.' },
         content: { type: 'string', example: 'Book body content...' },
         isPublic: { type: 'boolean', example: false },

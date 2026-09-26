@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { FlashCardStatus } from '../flashcards/flashcard.entity';
 import { Book } from './book.entity';
@@ -21,6 +21,31 @@ export class BooksService {
     private readonly subscriptionsService: SubscriptionsService,
     private readonly managedImageService: ManagedImageService,
   ) {}
+
+  private async validateParentBook(
+    manager: EntityManager,
+    userId: string,
+    parentBookId: string,
+    bookId?: string,
+  ): Promise<void> {
+    if (parentBookId === bookId) {
+      throw new BadRequestException('A book cannot be its own parent');
+    }
+
+    const parent = await manager.findOne(Book, {
+      where: { id: parentBookId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!parent) {
+      throw new NotFoundException('Parent book not found');
+    }
+    if (parent.userId !== userId) {
+      throw new ForbiddenException('You do not own the parent book');
+    }
+    if (parent.parentBookId !== null) {
+      throw new BadRequestException('Sub-books cannot contain other books');
+    }
+  }
 
   async createBook(
     userId: string,
@@ -58,12 +83,24 @@ export class BooksService {
     const book = this.bookRepository.create({
       ...createBookDto,
       userId,
+      parentBookId: createBookDto.parentBookId ?? null,
       wordCount,
       coverImage: managedCover?.fileUrl || Book.DEFAULT_COVER_IMAGE_URL,
       coverImageKey: managedCover?.objectKey || 'images/logo.png',
     });
 
-    const savedBook = await this.bookRepository.save(book);
+    const savedBook = await this.bookRepository.manager.transaction(
+      async (manager) => {
+        if (createBookDto.parentBookId) {
+          await this.validateParentBook(
+            manager,
+            userId,
+            createBookDto.parentBookId,
+          );
+        }
+        return manager.save(Book, book);
+      },
+    );
 
     // Update user's subscription usage
     await this.subscriptionsService.updateUserUsage(userId, 1, wordCount);
@@ -139,7 +176,11 @@ export class BooksService {
       throw new ForbiddenException('You do not have access to this book');
     }
 
-    return this.prepareBookResponse(book);
+    const response = this.prepareBookResponse(book);
+    if (book.userId !== userId) {
+      response.parentBookId = null;
+    }
+    return response;
   }
 
   async updateBook(
@@ -160,6 +201,7 @@ export class BooksService {
       throw new ForbiddenException('You can only update your own books');
     }
 
+    let nextCoverImageKey: string | undefined;
     if (updateBookDto.coverImage !== undefined) {
       const managedCover = await this.managedImageService.normalizeExternalUrl(
         userId,
@@ -167,10 +209,11 @@ export class BooksService {
         'book',
       );
       updateBookDto.coverImage = managedCover.fileUrl;
-      book.coverImageKey = managedCover.objectKey;
+      nextCoverImageKey = managedCover.objectKey;
     }
 
     // Calculate word count change if content is updated
+    let nextWordCount: number | undefined;
     if (updateBookDto.content !== undefined) {
       const newWordCount = this.countWords(updateBookDto.content);
       const wordDifference = newWordCount - book.wordCount;
@@ -202,12 +245,47 @@ export class BooksService {
         );
       }
 
-      book.wordCount = newWordCount;
+      nextWordCount = newWordCount;
     }
 
-    // Update other fields
-    Object.assign(book, updateBookDto);
-    return this.bookRepository.save(book);
+    return this.bookRepository.manager.transaction(async (manager) => {
+      const lockedBook = await manager.findOne(Book, {
+        where: { id: bookId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedBook) {
+        throw new NotFoundException('Book not found');
+      }
+      if (lockedBook.userId !== userId) {
+        throw new ForbiddenException('You can only update your own books');
+      }
+
+      if (updateBookDto.parentBookId) {
+        await this.validateParentBook(
+          manager,
+          userId,
+          updateBookDto.parentBookId,
+          bookId,
+        );
+        const childCount = await manager.count(Book, {
+          where: { parentBookId: bookId },
+        });
+        if (childCount > 0) {
+          throw new BadRequestException(
+            'Move sub-books before moving this book under another book',
+          );
+        }
+      }
+
+      Object.assign(lockedBook, updateBookDto);
+      if (nextCoverImageKey !== undefined) {
+        lockedBook.coverImageKey = nextCoverImageKey;
+      }
+      if (nextWordCount !== undefined) {
+        lockedBook.wordCount = nextWordCount;
+      }
+      return manager.save(Book, lockedBook);
+    });
   }
 
   async deleteBook(
@@ -228,6 +306,25 @@ export class BooksService {
     }
 
     await this.bookRepository.manager.transaction(async (manager) => {
+      const lockedBook = await manager.findOne(Book, {
+        where: { id: bookId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedBook) {
+        throw new NotFoundException('Book not found');
+      }
+      if (lockedBook.userId !== userId) {
+        throw new ForbiddenException('You can only delete your own books');
+      }
+      const childCount = await manager.count(Book, {
+        where: { parentBookId: bookId },
+      });
+      if (childCount > 0) {
+        throw new BadRequestException(
+          'Move or delete sub-books before deleting this book',
+        );
+      }
+
       await manager.query(
         `
         DELETE FROM sessions
@@ -263,13 +360,14 @@ export class BooksService {
     limit: number = 10,
     offset: number = 0,
   ): Promise<Book[]> {
-    return this.bookRepository.find({
+    const books = await this.bookRepository.find({
       where: { isPublic: true },
       relations: ['user'],
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
     });
+    return books.map((book) => ({ ...book, parentBookId: null }));
   }
 
   // Helper method to count words
