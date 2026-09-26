@@ -8,4 +8,5 @@ export enum PartOfSpeech {
   CONJUNCTION = 'conjunction',
   INTERJECTION = 'interjection',
   DETERMINER = 'determiner',
+  PHRASE = 'phrase',
 }
