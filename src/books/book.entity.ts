@@ -23,6 +23,10 @@ export class Book {
   @Column()
   userId!: string;
 
+  @Index('IDX_books_parentBookId')
+  @Column({ type: 'uuid', nullable: true })
+  parentBookId!: string | null;
+
   @Column()
   title!: string;
 
@@ -65,6 +69,16 @@ export class Book {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user!: User;
+
+  @ManyToOne(() => Book, (book) => book.subBooks, {
+    nullable: true,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'parentBookId' })
+  parentBook!: Book | null;
+
+  @OneToMany(() => Book, (book) => book.parentBook)
+  subBooks!: Book[];
 
   @OneToMany(() => FlashCard, (flashcard) => flashcard.book, {
     onDelete: 'CASCADE',

@@ -2,6 +2,7 @@ import {
   IsString,
   IsOptional,
   IsBoolean,
+  IsUUID,
   MinLength,
   MaxLength,
 } from 'class-validator';
@@ -13,6 +14,14 @@ export class CreateBookDto {
   @MinLength(3)
   @MaxLength(255)
   title!: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Top-level parent book ID',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  parentBookId?: string;
 
   @ApiPropertyOptional({ example: 'A beginner guide.' })
   @IsOptional()
