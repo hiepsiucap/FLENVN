@@ -9,6 +9,7 @@ import {
   Param,
   Post,
   Put,
+  ServiceUnavailableException,
   Query,
   Request,
   UseGuards,
@@ -19,6 +20,8 @@ import { CreateFlashcardDto } from './dto/create-flashcard.dto';
 import { UpdateFlashcardDto } from './dto/update-flashcard.dto';
 import { FlashCardStatus } from './flashcard.entity';
 import { FlashcardsService } from './flashcards.service';
+import { FlashcardAudioService } from './flashcard-audio.service';
+import { SuggestFlashcardAudioDto } from './dto/suggest-flashcard-audio.dto';
 import { AssignFlashcardLabelsDto } from '../labels/dto/assign-flashcard-labels.dto';
 import { LabelsService } from '../labels/labels.service';
 
@@ -27,7 +30,26 @@ export class FlashcardsController {
   constructor(
     private readonly flashcardsService: FlashcardsService,
     private readonly labelsService: LabelsService,
+    private readonly flashcardAudioService: FlashcardAudioService,
   ) {}
+
+  @Post('audio/suggest')
+  @UseGuards(JwtAuthGuard)
+  async suggestAudio(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: SuggestFlashcardAudioDto,
+  ) {
+    if (!req.user?.id) throw new BadRequestException('User not authenticated');
+    const text = dto.text.trim();
+    if (!text) throw new BadRequestException('Enter text to generate audio');
+    const url = await this.flashcardAudioService.createAudioUrl(
+      req.user.id,
+      text,
+    );
+    if (!url)
+      throw new ServiceUnavailableException('Audio suggestion is unavailable');
+    return { url };
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard)
