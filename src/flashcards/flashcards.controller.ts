@@ -21,6 +21,7 @@ import { UpdateFlashcardDto } from './dto/update-flashcard.dto';
 import { FlashCardStatus } from './flashcard.entity';
 import { FlashcardsService } from './flashcards.service';
 import { FlashcardAudioService } from './flashcard-audio.service';
+import { FlashcardImageService } from './flashcard-image.service';
 import { SuggestFlashcardAudioDto } from './dto/suggest-flashcard-audio.dto';
 import { AssignFlashcardLabelsDto } from '../labels/dto/assign-flashcard-labels.dto';
 import { LabelsService } from '../labels/labels.service';
@@ -31,6 +32,7 @@ export class FlashcardsController {
     private readonly flashcardsService: FlashcardsService,
     private readonly labelsService: LabelsService,
     private readonly flashcardAudioService: FlashcardAudioService,
+    private readonly flashcardImageService: FlashcardImageService,
   ) {}
 
   @Post('audio/suggest')
@@ -127,6 +129,27 @@ export class FlashcardsController {
       throw new Error('User not authenticated');
     }
     return this.flashcardsService.getStats(req.user.id);
+  }
+
+  @Get('images/suggest')
+  @UseGuards(JwtAuthGuard)
+  async suggestImages(
+    @Request() req: AuthenticatedRequest,
+    @Query('word') word: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (!req.user?.id) throw new BadRequestException('User not authenticated');
+    const query = word?.trim();
+    if (!query || query.length > 100) {
+      throw new BadRequestException('Enter a word of 100 characters or fewer');
+    }
+    const imageLimit = limit === undefined ? 6 : Number(limit);
+    if (!Number.isInteger(imageLimit) || imageLimit < 1 || imageLimit > 10) {
+      throw new BadRequestException('Image limit must be between 1 and 10');
+    }
+    return {
+      images: await this.flashcardImageService.findImageUrls(query, imageLimit),
+    };
   }
 
   @Get(':id')
