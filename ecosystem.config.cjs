@@ -12,7 +12,7 @@ module.exports = {
       },
       env_production: {
         NODE_ENV: 'production',
-        CORS_ORIGINS: 'https://flenvn.app',
+        CORS_ORIGINS: 'https://flenvn.app,http://localhost:3000',
         AWS_REGION: 'ap-southeast-1',
         AUTO_LABELING_ENABLED: 'true',
         AUTO_LABELING_QUEUE_URL:
