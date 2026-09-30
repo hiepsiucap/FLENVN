@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FlashcardAudioService } from '../flashcards/flashcard-audio.service';
@@ -17,6 +18,7 @@ import { AutocompleteWordDto } from './dto/autocomplete-word.dto';
 import { CorrectTextDto } from './dto/correct-text.dto';
 import { ExplainWordInContextDto } from './dto/explain-word-in-context.dto';
 import { SuggestWordDto } from './dto/suggest-word.dto';
+import { SearchVocabularyDto } from './dto/search-vocabulary.dto';
 import {
   SuggestTopicVocabularyDto,
   TopicVocabularyLevel,
@@ -25,22 +27,6 @@ import {
   OpenAiWordSuggestion,
   WordsExampleService,
 } from './words-example.service';
-
-interface DictionaryResponseItem {
-  word?: string;
-  phonetic?: string;
-  phonetics?: Array<{
-    text?: string;
-    audio?: string;
-  }>;
-  meanings?: Array<{
-    partOfSpeech?: string;
-    definitions?: Array<{
-      definition?: string;
-      example?: string;
-    }>;
-  }>;
-}
 
 interface DatamuseSuggestion {
   word?: string;
@@ -466,6 +452,82 @@ export class WordsService {
         examples[0]?.source,
       ),
       source: 'generated',
+    };
+  }
+
+  async searchVocabulary(userId: string, dto: SearchVocabularyDto) {
+    const word = dto.word.trim();
+    const context = dto.context?.trim() || '';
+    if (!word) throw new BadRequestException('Word must not be empty');
+
+    const targetLanguage = dto.language === 'en' ? 'vi' : 'en';
+    const result = context
+      ? await this.wordsExampleService.explainInContext(
+          word,
+          word,
+          context,
+          context,
+          targetLanguage,
+          dto.language,
+        )
+      : (
+          await this.wordsExampleService.generateSuggestions(
+            word,
+            targetLanguage,
+            dto.language,
+          )
+        )[0];
+    if (!result?.definition?.trim() || !result.example?.trim()) {
+      throw new ServiceUnavailableException(
+        'Vocabulary explanation is temporarily unavailable',
+      );
+    }
+
+    const definition = result.definition.trim();
+    const translation = result.translation?.trim() || '';
+    const example = context || result.example.trim();
+    const draft = {
+      word,
+      definition,
+      translation,
+      example,
+      ...(context
+        ? {}
+        : { exampleTranslation: result.exampleTranslation?.trim() || '' }),
+      ...(dto.bookId ? { bookId: dto.bookId } : {}),
+    };
+    const answer =
+      'explanation' in result && typeof result.explanation === 'string'
+        ? result.explanation.trim()
+        : `${word}: ${definition}${translation ? ` (${translation})` : ''}. Example: ${example}`;
+
+    const existing = await this.flashcardsService.findByWord(userId, word);
+    if (existing) {
+      return {
+        word,
+        language: dto.language,
+        definition,
+        translation,
+        example,
+        answer,
+        draft,
+        save: {
+          status: 'existing',
+          flashcardId: existing.id,
+          bookId: existing.bookId,
+        },
+      };
+    }
+
+    return {
+      word,
+      language: dto.language,
+      definition,
+      translation,
+      example,
+      answer,
+      draft,
+      save: { status: 'pending' },
     };
   }
 

@@ -1,7 +1,10 @@
 import { ConfigService } from '@nestjs/config';
 import { WordsExampleService } from './words-example.service';
 
-const mockGenerateContent = jest.fn();
+const mockGenerateContent = jest.fn(
+  (request: { model: string; contents: string }) =>
+    Promise.resolve({ text: request.contents }),
+);
 
 jest.mock('@google/genai', () => ({
   GoogleGenAI: jest.fn().mockImplementation(() => ({
@@ -41,7 +44,9 @@ describe('WordsExampleService', () => {
   };
 
   it('uses Gemini Flash Lite when its result is valid', async () => {
-    mockGenerateContent.mockResolvedValue({ text: JSON.stringify(validOutput) });
+    mockGenerateContent.mockResolvedValue({
+      text: JSON.stringify(validOutput),
+    });
 
     await expect(
       createService().generateSuggestions('bright', 'vi'),
@@ -54,6 +59,41 @@ describe('WordsExampleService', () => {
     expect(mockGenerateContent).toHaveBeenCalledTimes(1);
     expect(mockGenerateContent.mock.calls[0][0].model).toBe(
       'gemini-3.5-flash-lite',
+    );
+  });
+
+  it('asks for a Vietnamese definition and English translation when searching Vietnamese', async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: JSON.stringify({
+        suggestions: [
+          {
+            partOfSpeech: 'noun',
+            definition: 'Nơi giữ tiền và cung cấp dịch vụ tài chính.',
+            translation: 'bank',
+            example: 'Cô ấy đến ngân hàng.',
+            exampleTranslation: 'She went to the bank.',
+          },
+        ],
+      }),
+    });
+
+    await createService().generateSuggestions('ngân hàng', 'en', 'vi');
+
+    expect(mockGenerateContent.mock.calls[0][0].contents).toContain(
+      'definition must be short, precise, beginner-friendly Vietnamese',
+    );
+    expect(mockGenerateContent.mock.calls[0][0].contents).toContain(
+      'Back-translate translation into Vietnamese',
+    );
+  });
+
+  it('keeps existing English-source prompts when callers request English output', async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: JSON.stringify(validOutput),
+    });
+    await createService().generateSuggestions('bright', 'en');
+    expect(mockGenerateContent.mock.calls[0][0].contents).toContain(
+      'definition must be short, precise, beginner-friendly English',
     );
   });
 
@@ -80,9 +120,7 @@ describe('WordsExampleService', () => {
       })),
     );
     expect(mockGenerateContent).toHaveBeenCalledTimes(2);
-    expect(mockGenerateContent.mock.calls[1][0].model).toBe(
-      'gemini-3.5-flash',
-    );
+    expect(mockGenerateContent.mock.calls[1][0].model).toBe('gemini-3.5-flash');
   });
 
   it('returns no suggestions when both Vertex models fail', async () => {

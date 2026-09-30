@@ -122,7 +122,28 @@ export class FlashcardsService {
       labeledAt: shouldAutoLabel ? null : new Date(),
     });
 
-    const savedFlashcard = await this.flashcardRepository.save(flashcard);
+    let savedFlashcard: FlashCard;
+    try {
+      savedFlashcard = await this.flashcardRepository.save(flashcard);
+    } catch (error: unknown) {
+      const driverError =
+        error && typeof error === 'object' && 'driverError' in error
+          ? error.driverError
+          : error;
+      const isUniqueViolation =
+        driverError &&
+        typeof driverError === 'object' &&
+        'code' in driverError &&
+        driverError.code === '23505';
+      if (isUniqueViolation) {
+        const racedFlashcard = await this.findByWord(
+          userId,
+          flashcardData.word,
+        );
+        if (racedFlashcard) throw this.wordAlreadyExists(racedFlashcard);
+      }
+      throw error;
+    }
 
     // Update subscription usage
     await this.subscriptionsService.updateUserUsage(userId, 0, wordCount);

@@ -290,4 +290,125 @@ describe('WordsService', () => {
     expect(imageService.findImageUrls).not.toHaveBeenCalled();
     expect(translationService.translateText).not.toHaveBeenCalled();
   });
+
+  it('explains a searched English word and returns a draft for automatic card saving', async () => {
+    const exampleService = {
+      generateSuggestions: jest.fn().mockResolvedValue([
+        {
+          definition: 'A place for keeping money.',
+          translation: 'ngân hàng',
+          example: 'She went to the bank.',
+          exampleTranslation: 'Cô ấy đã đến ngân hàng.',
+          partOfSpeech: 'noun',
+        },
+      ]),
+    };
+    const flashcards = {
+      findByWord: jest.fn().mockResolvedValue(null),
+      createFlashcard: jest.fn().mockResolvedValue({ id: 'card-1' }),
+    };
+    const service = new WordsService(
+      {
+        get: jest.fn((_key: string, fallback?: unknown) => fallback),
+      } as unknown as ConfigService,
+      {} as never,
+      {} as never,
+      {} as never,
+      exampleService as never,
+      flashcards as never,
+    );
+
+    const response = await service.searchVocabulary('user-1', {
+      word: 'bank',
+      language: 'en',
+      bookId: 'book-1',
+    });
+    expect(response.word).toBe('bank');
+    expect(response.definition).toBe('A place for keeping money.');
+    expect(response.save).toEqual({ status: 'pending' });
+    expect(response.draft).toEqual(
+      expect.objectContaining({ word: 'bank', bookId: 'book-1' }),
+    );
+    expect(exampleService.generateSuggestions).toHaveBeenCalledWith(
+      'bank',
+      'vi',
+      'en',
+    );
+    expect(flashcards.createFlashcard).not.toHaveBeenCalled();
+  });
+
+  it('uses supplied context for the card draft and keeps an existing card unchanged', async () => {
+    const exampleService = {
+      explainInContext: jest.fn().mockResolvedValue({
+        definition: 'A place that keeps money.',
+        translation: 'ngân hàng',
+        explanation: 'Ở đây, bank là nơi giữ tiền.',
+        example: 'She went to the bank.',
+        exampleTranslation: 'Cô ấy đến ngân hàng.',
+      }),
+    };
+    const flashcards = {
+      findByWord: jest
+        .fn()
+        .mockResolvedValue({ id: 'existing-card', bookId: 'other-book' }),
+      createFlashcard: jest.fn(),
+    };
+    const service = new WordsService(
+      {
+        get: jest.fn((_key: string, fallback?: unknown) => fallback),
+      } as unknown as ConfigService,
+      {} as never,
+      {} as never,
+      {} as never,
+      exampleService as never,
+      flashcards as never,
+    );
+
+    await expect(
+      service.searchVocabulary('user-1', {
+        word: 'bank',
+        language: 'en',
+        context: 'She went to the bank.',
+        bookId: 'book-1',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        example: 'She went to the bank.',
+        save: {
+          status: 'existing',
+          flashcardId: 'existing-card',
+          bookId: 'other-book',
+        },
+      }),
+    );
+    expect(exampleService.explainInContext).toHaveBeenCalledWith(
+      'bank',
+      'bank',
+      'She went to the bank.',
+      'She went to the bank.',
+      'vi',
+      'en',
+    );
+    expect(flashcards.createFlashcard).not.toHaveBeenCalled();
+  });
+
+  it('does not return a flashcard draft when the provider has no valid explanation', async () => {
+    const flashcards = { findByWord: jest.fn(), createFlashcard: jest.fn() };
+    const service = new WordsService(
+      {
+        get: jest.fn((_key: string, fallback?: unknown) => fallback),
+      } as unknown as ConfigService,
+      {} as never,
+      {} as never,
+      {} as never,
+      { generateSuggestions: jest.fn().mockResolvedValue([]) } as never,
+      flashcards as never,
+    );
+
+    await expect(
+      service.searchVocabulary('user-1', { word: 'bank', language: 'en' }),
+    ).rejects.toThrow('temporarily unavailable');
+    expect(flashcards.findByWord).not.toHaveBeenCalled();
+    expect(flashcards.createFlashcard).not.toHaveBeenCalled();
+  });
 });
