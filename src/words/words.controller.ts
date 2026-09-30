@@ -16,6 +16,7 @@ import { AutocompleteWordDto } from './dto/autocomplete-word.dto';
 import { CorrectTextDto } from './dto/correct-text.dto';
 import { ExplainWordInContextDto } from './dto/explain-word-in-context.dto';
 import { SuggestWordDto } from './dto/suggest-word.dto';
+import { SearchVocabularyDto } from './dto/search-vocabulary.dto';
 import { SuggestTopicVocabularyDto } from './dto/suggest-topic-vocabulary.dto';
 import {
   TextCorrectionResponse,
@@ -57,6 +58,15 @@ export class WordsController {
     @Query() dto: SuggestWordDto,
   ): Promise<WordSuggestionResponse> {
     return this.wordsService.suggestWord(user.id, dto);
+  }
+
+  @Post('vocabulary-search')
+  @HttpCode(HttpStatus.OK)
+  searchVocabulary(
+    @CurrentUser() user: User,
+    @Body() dto: SearchVocabularyDto,
+  ) {
+    return this.wordsService.searchVocabulary(user.id, dto);
   }
 
   @Post('explain-in-context')

@@ -45,6 +45,7 @@ export class WordsExampleService {
   async generateSuggestions(
     word: string,
     targetLanguage: string,
+    sourceLanguage: 'en' | 'vi' = 'en',
   ): Promise<OpenAiWordSuggestion[]> {
     const primaryModel = this.configService.get<string>(
       'services.vertex.model',
@@ -54,6 +55,7 @@ export class WordsExampleService {
       word,
       targetLanguage,
       primaryModel,
+      sourceLanguage,
     );
     if (primarySuggestions.length > 0) return primarySuggestions;
 
@@ -66,7 +68,12 @@ export class WordsExampleService {
     this.logger.warn(
       `Vertex AI primary model returned no valid suggestions; using ${fallbackModel}`,
     );
-    return this.generateWithVertex(word, targetLanguage, fallbackModel);
+    return this.generateWithVertex(
+      word,
+      targetLanguage,
+      fallbackModel,
+      sourceLanguage,
+    );
   }
 
   async explainInContext(
@@ -75,6 +82,7 @@ export class WordsExampleService {
     context: string,
     example: string,
     targetLanguage: string,
+    sourceLanguage: 'en' | 'vi' = 'en',
   ): Promise<ContextualWordExplanation | undefined> {
     const primaryModel = this.configService.get<string>(
       'services.vertex.model',
@@ -87,6 +95,7 @@ export class WordsExampleService {
       example,
       targetLanguage,
       primaryModel,
+      sourceLanguage,
     );
     if (primary) return primary;
 
@@ -106,6 +115,7 @@ export class WordsExampleService {
       example,
       targetLanguage,
       fallbackModel,
+      sourceLanguage,
     );
   }
 
@@ -116,6 +126,7 @@ export class WordsExampleService {
     example: string,
     targetLanguage: string,
     model: string,
+    sourceLanguage: 'en' | 'vi',
   ): Promise<ContextualWordExplanation | undefined> {
     const project = this.configService.get<string>('services.vertex.project');
     if (!project) return undefined;
@@ -137,6 +148,7 @@ export class WordsExampleService {
           context,
           example,
           targetLanguage,
+          sourceLanguage,
         ),
         config: {
           temperature: 0,
@@ -209,6 +221,7 @@ export class WordsExampleService {
     word: string,
     targetLanguage: string,
     model: string,
+    sourceLanguage: 'en' | 'vi',
   ): Promise<OpenAiWordSuggestion[]> {
     const project = this.configService.get<string>('services.vertex.project');
     if (!project) return [];
@@ -224,7 +237,7 @@ export class WordsExampleService {
       });
       const response = await client.models.generateContent({
         model,
-        contents: this.buildPrompt(word, targetLanguage),
+        contents: this.buildPrompt(word, targetLanguage, sourceLanguage),
         config: {
           temperature: 0,
           maxOutputTokens: this.configService.get<number>(
@@ -317,9 +330,12 @@ export class WordsExampleService {
     context: string,
     example: string,
     targetLanguage: string,
+    sourceLanguageCode: 'en' | 'vi',
   ): string {
+    const sourceLanguage =
+      sourceLanguageCode === 'vi' ? 'Vietnamese' : 'English';
     return [
-      'You are a conservative bilingual English dictionary editor.',
+      `You are a conservative bilingual ${sourceLanguage} dictionary editor.`,
       'Identify only the single meaning of the target word used in the supplied context.',
       'Do not list alternative senses.',
       'Decide whether the supplied example is a complete, natural sentence with enough context to identify the sense.',
@@ -327,7 +343,7 @@ export class WordsExampleService {
       'If it is incomplete, a fragment, or only the word, create one concise natural sentence using the target word, put it in example, and set generatedExample to true.',
       'When context does not identify a sense, use the most common everyday sense and make the generated example unambiguous.',
       'Translate the final example field faithfully and naturally into exampleTranslation.',
-      'The definition must be concise, beginner-friendly English.',
+      `The definition must be concise, beginner-friendly ${sourceLanguage}.`,
       'The translation must be a natural 1-to-4-word equivalent of this exact contextual sense and match its part of speech.',
       'The explanation must briefly explain in the target language why this meaning fits the context.',
       'Silently verify that definition, translation, part of speech, and example translation all express the same sense.',
@@ -366,10 +382,16 @@ export class WordsExampleService {
     };
   }
 
-  private buildPrompt(word: string, targetLanguage: string): string {
+  private buildPrompt(
+    word: string,
+    targetLanguage: string,
+    sourceLanguageCode: 'en' | 'vi',
+  ): string {
+    const sourceLanguage =
+      sourceLanguageCode === 'vi' ? 'Vietnamese' : 'English';
     return [
-      'ROLE: You are a conservative bilingual English dictionary editor for learners who speak the requested target language.',
-      'TASK: Return only well-established, common dictionary senses of the requested English word as structured JSON.',
+      `ROLE: You are a conservative bilingual ${sourceLanguage} dictionary editor for learners who speak the requested target language.`,
+      `TASK: Return only well-established, common dictionary senses of the requested ${sourceLanguage} word as structured JSON.`,
       targetLanguage.toLowerCase() === 'vi'
         ? 'TARGET LANGUAGE: Vietnamese (vi). Write standard Vietnamese with full Unicode tone marks and diacritics. Never return romanized or ASCII-only Vietnamese.'
         : `TARGET LANGUAGE CODE: ${targetLanguage}.`,
@@ -378,12 +400,12 @@ export class WordsExampleService {
       '- Return 1 to 5 senses. There is no target or minimum count. Fewer correct senses are better than extra uncertain senses.',
       '- Never invent, infer, or stretch a sense to increase the count.',
       '- Exclude rare, archaic, highly technical, phrase-only, and context-only senses.',
-      '- Merge senses that an English learner would use with the same rule and target-language translation.',
+      `- Merge senses that a ${sourceLanguage} learner would use with the same rule and target-language translation.`,
       '- Order senses by everyday frequency.',
       '',
       'FIELD RULES FOR EVERY SENSE:',
       '- partOfSpeech must describe the target word as used in the example: noun, verb, adjective, adverb, phrase, or expression.',
-      '- definition must be short, precise, beginner-friendly English and must define only that sense.',
+      `- definition must be short, precise, beginner-friendly ${sourceLanguage} and must define only that sense.`,
       '- translation must be the most common natural equivalent in the requested target language for that exact definition and the same part of speech, not a literal word-by-word rendering or broad association.',
       '- translation must contain 1 to 4 words, with no slash, alternatives, parentheses, or explanation.',
       '- example must contain the target word or a normal inflected form and use exactly the defined sense.',
@@ -391,7 +413,7 @@ export class WordsExampleService {
       '- exampleTranslation must be a faithful, idiomatic translation of the whole example in the requested target language.',
       '',
       'MANDATORY SILENT VALIDATION — discard the entire sense if any check fails:',
-      '1. Back-translate translation into English: it must match definition, including part of speech.',
+      `1. Back-translate translation into ${sourceLanguage}: it must match definition, including part of speech.`,
       '2. Substitute definition for the target word in example: the intended meaning and subject/object roles must remain the same.',
       '3. Confirm exampleTranslation expresses the same event, tense, subject, and object as example.',
       '4. Read translation and exampleTranslation as a native speaker would; discard or rewrite awkward, uncommon, or word-for-word phrasing.',

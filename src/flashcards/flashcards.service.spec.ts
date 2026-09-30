@@ -59,6 +59,24 @@ describe('FlashcardsService extension save safeguards', () => {
     expect(flashcardRepository.save).not.toHaveBeenCalled();
   });
 
+  it('returns the existing card when a concurrent save hits the unique word index', async () => {
+    flashcardRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'raced-card',
+        word: 'resilient',
+        bookId: 'book-1',
+      });
+    flashcardRepository.create.mockReturnValue({ word: 'resilient' });
+    flashcardRepository.save.mockRejectedValue({ code: '23505' });
+    subscriptionsService.canAddWords.mockResolvedValue(true);
+
+    await expect(
+      service.createFlashcard('user-1', { word: 'resilient' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(subscriptionsService.updateUserUsage).not.toHaveBeenCalled();
+  });
+
   it('does not allow saving into a public book owned by another user', async () => {
     flashcardRepository.findOne.mockResolvedValue(null);
     subscriptionsService.canAddWords.mockResolvedValue(true);
