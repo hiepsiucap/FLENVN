@@ -55,6 +55,11 @@ export class VocabularyCandidateDto {
   @IsString()
   @MaxLength(2000)
   example?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  imageUrl?: string;
 }
 
 export class SaveVocabularyDto {

@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BooksService } from '../books/books.service';
 import { FlashcardsService } from '../flashcards/flashcards.service';
+import { FlashcardImageService } from '../flashcards/flashcard-image.service';
 import { PartOfSpeech } from '../flashcards/part-of-speech.enum';
 import { AiConversation } from './ai-conversation.entity';
 import { AiMessage } from './ai-message.entity';
@@ -30,6 +31,7 @@ export class VocabularyCollectorService {
     private readonly books: BooksService,
     private readonly flashcards: FlashcardsService,
     private readonly model: VocabularyCollectorModelService,
+    private readonly images: FlashcardImageService,
   ) {}
 
   async discoverConversation(userId: string, conversationId: string) {
@@ -99,6 +101,7 @@ export class VocabularyCollectorService {
         existingFlashcardId: string | null;
         existingBookId: string | null;
         existingBookTitle: string | null;
+        imageUrl?: string;
       }
     > = [];
     for (const candidate of candidates.slice(0, 20)) {
@@ -120,6 +123,23 @@ export class VocabularyCollectorService {
         existingFlashcardId: existing?.id ?? null,
         existingBookId: existing?.bookId ?? null,
         existingBookTitle: existing?.book?.title ?? null,
+        imageUrl: existing?.imageUrl ?? undefined,
+      });
+    }
+    const unsaved = results.filter((candidate) => !candidate.alreadyExists);
+    for (let offset = 0; offset < unsaved.length; offset += 4) {
+      const batch = unsaved.slice(offset, offset + 4);
+      const found = await Promise.allSettled(
+        batch.map((candidate) => this.images.findImageUrl(candidate.text)),
+      );
+      found.forEach((result, index) => {
+        if (
+          result.status === 'fulfilled' &&
+          result.value &&
+          result.value !== FlashcardImageService.DEFAULT_FLASHCARD_IMAGE_URL
+        ) {
+          batch[index].imageUrl = result.value;
+        }
       });
     }
     return { candidates: results };
@@ -176,6 +196,7 @@ export class VocabularyCollectorService {
           translation: candidate.translation.trim(),
           definition: candidate.definition.trim(),
           example: candidate.example?.trim() || undefined,
+          imageUrl: candidate.imageUrl?.trim() || undefined,
         });
         results.push({ text, status: 'saved', flashcardId: card.id });
       } catch (error) {
