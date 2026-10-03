@@ -25,13 +25,51 @@ import {
 } from './dto/pagination.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
+import {
+  DiscoverTopicDto,
+  SaveVocabularyDto,
+} from './dto/collect-vocabulary.dto';
+import { VocabularyCollectorService } from './vocabulary-collector.service';
 
 @ApiTags('AI Chat')
 @ApiBearerAuth('jwt-auth')
 @Controller('ai/conversations')
 @UseGuards(JwtAuthGuard)
 export class AiChatController {
-  constructor(private readonly aiChatService: AiChatService) {}
+  constructor(
+    private readonly aiChatService: AiChatService,
+    private readonly vocabularyCollector: VocabularyCollectorService,
+  ) {}
+
+  @Post('vocabulary/topic')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Discover vocabulary related to a topic' })
+  discoverTopic(@CurrentUser() user: User, @Body() dto: DiscoverTopicDto) {
+    return this.vocabularyCollector.discoverTopic(
+      user.id,
+      dto.topic,
+      dto.targetLanguage,
+    );
+  }
+
+  @Post('vocabulary/save')
+  @ApiOperation({ summary: 'Save reviewed vocabulary into an owned book' })
+  saveVocabulary(@CurrentUser() user: User, @Body() dto: SaveVocabularyDto) {
+    return this.vocabularyCollector.save(user.id, dto);
+  }
+
+  @Post(':conversationId/vocabulary/discover')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Discover vocabulary in an owned conversation' })
+  discoverConversationVocabulary(
+    @CurrentUser() user: User,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+  ) {
+    return this.vocabularyCollector.discoverConversation(
+      user.id,
+      conversationId,
+    );
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create an AI conversation' })

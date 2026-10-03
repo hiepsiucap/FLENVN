@@ -9,4 +9,8 @@ export enum PartOfSpeech {
   INTERJECTION = 'interjection',
   DETERMINER = 'determiner',
   PHRASE = 'phrase',
+  PHRASAL_VERB = 'phrasal_verb',
+  COLLOCATION = 'collocation',
+  IDIOM = 'idiom',
+  SENTENCE_PATTERN = 'sentence_pattern',
 }

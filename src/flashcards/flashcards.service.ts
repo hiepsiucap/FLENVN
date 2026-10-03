@@ -180,6 +180,7 @@ export class FlashcardsService {
 
   async findByWord(userId: string, word: string): Promise<FlashCard | null> {
     return this.flashcardRepository.findOne({
+      relations: { book: true },
       where: {
         userId,
         word: Raw((column) => `LOWER(TRIM(${column})) = LOWER(TRIM(:word))`, {
