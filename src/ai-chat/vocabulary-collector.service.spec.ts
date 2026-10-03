@@ -17,12 +17,14 @@ describe('VocabularyCollectorService', () => {
     createFlashcard: jest.fn(),
   };
   const model = { discover: jest.fn() };
+  const images = { findImageUrl: jest.fn() };
   const service = new VocabularyCollectorService(
     conversationRepository as never,
     messageRepository as never,
     booksService as never,
     flashcardsService as never,
     model as never,
+    images as never,
   );
 
   beforeEach(() => {
@@ -32,6 +34,7 @@ describe('VocabularyCollectorService', () => {
       { role: 'user', content: 'I need to break the ice.' },
     ]);
     flashcardsService.findByWord.mockResolvedValue(null);
+    images.findImageUrl.mockResolvedValue(undefined);
     booksService.getBookById.mockResolvedValue({
       id: 'book-1',
       userId: 'user-1',
@@ -77,6 +80,7 @@ describe('VocabularyCollectorService', () => {
       alreadyExists: true,
       existingFlashcardId: 'card-1',
     });
+    expect(images.findImageUrl).not.toHaveBeenCalled();
   });
 
   it('does not present invented examples as conversation quotes', async () => {
@@ -94,6 +98,67 @@ describe('VocabularyCollectorService', () => {
       'conversation-1',
     );
     expect(result.candidates[0].example).toBeUndefined();
+  });
+
+  it('suggests an image URL for a new vocabulary candidate', async () => {
+    model.discover.mockResolvedValue([
+      {
+        text: 'apple',
+        type: VocabularyCandidateType.WORD,
+        translation: 'táo',
+        definition: 'A fruit',
+      },
+    ]);
+    images.findImageUrl.mockResolvedValue('https://images.example/apple.jpg');
+
+    const result = await service.discoverTopic('user-1', 'fruit');
+
+    expect(images.findImageUrl).toHaveBeenCalledWith('apple');
+    expect(result.candidates[0].imageUrl).toBe(
+      'https://images.example/apple.jpg',
+    );
+  });
+
+  it('still returns vocabulary when image search fails', async () => {
+    model.discover.mockResolvedValue([
+      {
+        text: 'apple',
+        type: VocabularyCandidateType.WORD,
+        translation: 'táo',
+        definition: 'A fruit',
+      },
+    ]);
+    images.findImageUrl.mockRejectedValue(
+      new Error('Image provider unavailable'),
+    );
+
+    const result = await service.discoverTopic('user-1', 'fruit');
+
+    expect(result.candidates[0]).toMatchObject({ text: 'apple' });
+    expect(result.candidates[0].imageUrl).toBeUndefined();
+  });
+
+  it('passes a reviewed image URL to flashcard creation', async () => {
+    flashcardsService.createFlashcard.mockResolvedValue({ id: 'card-1' });
+    const request = {
+      bookId: 'book-1',
+      candidates: [
+        {
+          text: 'apple',
+          type: VocabularyCandidateType.WORD,
+          translation: 'táo',
+          definition: 'A fruit',
+          imageUrl: 'https://images.example/apple.jpg',
+        },
+      ],
+    };
+
+    await service.save('user-1', request);
+
+    expect(flashcardsService.createFlashcard).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ imageUrl: 'https://images.example/apple.jpg' }),
+    );
   });
 
   it('verifies book ownership before saving any card', async () => {
