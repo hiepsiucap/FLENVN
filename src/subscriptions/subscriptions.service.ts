@@ -58,24 +58,12 @@ export class SubscriptionsService {
 
   // User Subscription Management
   async assignFreePlan(userId: string): Promise<UserSubscription> {
-    let freePlan = await this.planRepository.findOne({
+    const freePlan = await this.planRepository.findOne({
       where: { name: 'Free' },
     });
 
     if (!freePlan) {
-      // Bootstrap a default free tier for fresh environments.
-      freePlan = await this.planRepository.save(
-        this.planRepository.create({
-          name: 'Free',
-          description: 'Default free plan',
-          price: 0,
-          maxBooks: 5,
-          maxWords: 50000,
-          maxFlashcards: 100,
-          features: {},
-          isActive: true,
-        }),
-      );
+      throw new NotFoundException('Free subscription plan is not configured');
     }
 
     const subscription = new UserSubscription();

@@ -15,11 +15,11 @@ export class CreateSubscriptionPlanDto {
   @IsNumber()
   price!: number;
 
-  @ApiProperty({ example: 5 })
+  @ApiProperty({ example: 20 })
   @IsNumber()
   maxBooks!: number;
 
-  @ApiProperty({ example: 50000 })
+  @ApiProperty({ example: 10000 })
   @IsNumber()
   maxWords!: number;
 
