@@ -25,6 +25,7 @@ import { WordsModule } from './words/words.module';
 import { LabelsModule } from './labels/labels.module';
 import { AiChatModule } from './ai-chat/ai-chat.module';
 import { ShadowingModule } from './shadowing/shadowing.module';
+import { SubmissionsModule } from './submissions/submissions.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { ShadowingModule } from './shadowing/shadowing.module';
     LabelsModule,
     AiChatModule,
     ShadowingModule,
+    SubmissionsModule,
     AdminModule,
   ],
   controllers: [AppController],
