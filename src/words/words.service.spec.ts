@@ -13,6 +13,46 @@ describe('WordsService', () => {
     jest.restoreAllMocks();
   });
 
+  it('uses pinyin in Chinese word suggestions without calling the English dictionary', async () => {
+    const translateText = jest.fn().mockResolvedValue({
+      translatedText: 'hello',
+      sourceLanguage: 'zh',
+      sourcePinyin: 'nǐ hǎo',
+    });
+    const generateSuggestions = jest.fn().mockResolvedValue([]);
+    const service = new WordsService(
+      {
+        get: jest.fn((_key: string, fallback?: unknown) => fallback),
+      } as unknown as ConfigService,
+      { createAudioUrl: jest.fn().mockResolvedValue(undefined) } as never,
+      { findImageUrls: jest.fn().mockResolvedValue([]) } as never,
+      { translateText } as never,
+      { generateSuggestions } as never,
+      availableVocabulary as never,
+    );
+    const dictionary = jest.spyOn(
+      service as unknown as {
+        fetchPronunciation: (word: string) => Promise<string | undefined>;
+      },
+      'fetchPronunciation',
+    );
+
+    const result = await service.suggestWord('user-id', {
+      word: '你好',
+      targetLanguage: 'en',
+    });
+
+    expect(result.pronunciation).toBe('nǐ hǎo');
+    expect(result.translation).toBe('hello');
+    expect(dictionary).not.toHaveBeenCalled();
+    expect(translateText).toHaveBeenCalledWith({
+      text: '你好',
+      sourceLanguage: 'zh',
+      targetLanguage: 'en',
+    });
+    expect(generateSuggestions).toHaveBeenCalledWith('你好', 'en', 'zh');
+  });
+
   it('returns no pronunciation when Datamuse times out', async () => {
     const configService = {
       get: jest.fn((key: string, defaultValue?: unknown) =>
@@ -202,6 +242,62 @@ describe('WordsService', () => {
       'It was sunny. They were running in the park. Then it rained.',
       'They were running in the park.',
       'vi',
+    );
+  });
+
+  it('returns contextual pinyin for a selected Chinese word', async () => {
+    const translateText = jest.fn().mockResolvedValue({
+      translatedText: 'bank',
+      sourceLanguage: 'zh',
+      sourcePinyin: 'yín háng',
+    });
+    const explainInContext = jest.fn().mockResolvedValue({
+      partOfSpeech: 'noun',
+      definition: '银行',
+      translation: 'bank',
+      explanation: 'Financial institution',
+      example: '我去了银行。',
+      exampleTranslation: 'I went to the bank.',
+      generatedExample: false,
+    });
+    const service = new WordsService(
+      {
+        get: jest.fn((_key: string, fallback?: unknown) => fallback),
+      } as unknown as ConfigService,
+      { createAudioUrl: jest.fn().mockResolvedValue(undefined) } as never,
+      { findImageUrls: jest.fn().mockResolvedValue([]) } as never,
+      { translateText } as never,
+      { explainInContext } as never,
+      availableVocabulary as never,
+    );
+    const dictionary = jest.spyOn(
+      service as unknown as {
+        fetchPronunciation: (word: string) => Promise<string | undefined>;
+      },
+      'fetchPronunciation',
+    );
+
+    const result = await service.explainWordInContext('user-id', {
+      text: '我去了银行。',
+      word: '银行',
+      targetLanguage: 'en',
+    });
+
+    expect(result.pronunciation).toBe('yín háng');
+    expect(dictionary).not.toHaveBeenCalled();
+    expect(translateText).toHaveBeenCalledWith({
+      text: '银行',
+      context: '我去了银行。',
+      sourceLanguage: 'zh',
+      targetLanguage: 'en',
+    });
+    expect(explainInContext).toHaveBeenCalledWith(
+      '银行',
+      '银行',
+      '我去了银行。',
+      '我去了银行。',
+      'en',
+      'zh',
     );
   });
 

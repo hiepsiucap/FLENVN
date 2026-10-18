@@ -45,7 +45,7 @@ export class WordsExampleService {
   async generateSuggestions(
     word: string,
     targetLanguage: string,
-    sourceLanguage: 'en' | 'vi' = 'en',
+    sourceLanguage: 'en' | 'vi' | 'zh' = 'en',
   ): Promise<OpenAiWordSuggestion[]> {
     const primaryModel = this.configService.get<string>(
       'services.vertex.model',
@@ -82,7 +82,7 @@ export class WordsExampleService {
     context: string,
     example: string,
     targetLanguage: string,
-    sourceLanguage: 'en' | 'vi' = 'en',
+    sourceLanguage: 'en' | 'vi' | 'zh' = 'en',
   ): Promise<ContextualWordExplanation | undefined> {
     const primaryModel = this.configService.get<string>(
       'services.vertex.model',
@@ -126,7 +126,7 @@ export class WordsExampleService {
     example: string,
     targetLanguage: string,
     model: string,
-    sourceLanguage: 'en' | 'vi',
+    sourceLanguage: 'en' | 'vi' | 'zh',
   ): Promise<ContextualWordExplanation | undefined> {
     const project = this.configService.get<string>('services.vertex.project');
     if (!project) return undefined;
@@ -221,7 +221,7 @@ export class WordsExampleService {
     word: string,
     targetLanguage: string,
     model: string,
-    sourceLanguage: 'en' | 'vi',
+    sourceLanguage: 'en' | 'vi' | 'zh',
   ): Promise<OpenAiWordSuggestion[]> {
     const project = this.configService.get<string>('services.vertex.project');
     if (!project) return [];
@@ -330,10 +330,14 @@ export class WordsExampleService {
     context: string,
     example: string,
     targetLanguage: string,
-    sourceLanguageCode: 'en' | 'vi',
+    sourceLanguageCode: 'en' | 'vi' | 'zh',
   ): string {
     const sourceLanguage =
-      sourceLanguageCode === 'vi' ? 'Vietnamese' : 'English';
+      sourceLanguageCode === 'vi'
+        ? 'Vietnamese'
+        : sourceLanguageCode === 'zh'
+          ? 'Chinese'
+          : 'English';
     return [
       `You are a conservative bilingual ${sourceLanguage} dictionary editor.`,
       'Identify only the single meaning of the target word used in the supplied context.',
@@ -385,10 +389,14 @@ export class WordsExampleService {
   private buildPrompt(
     word: string,
     targetLanguage: string,
-    sourceLanguageCode: 'en' | 'vi',
+    sourceLanguageCode: 'en' | 'vi' | 'zh',
   ): string {
     const sourceLanguage =
-      sourceLanguageCode === 'vi' ? 'Vietnamese' : 'English';
+      sourceLanguageCode === 'vi'
+        ? 'Vietnamese'
+        : sourceLanguageCode === 'zh'
+          ? 'Chinese'
+          : 'English';
     return [
       `ROLE: You are a conservative bilingual ${sourceLanguage} dictionary editor for learners who speak the requested target language.`,
       `TASK: Return only well-established, common dictionary senses of the requested ${sourceLanguage} word as structured JSON.`,

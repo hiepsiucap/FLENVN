@@ -3,7 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InternalServerErrorException } from '@nestjs/common';
 import { TranslateService } from './translate.service';
 
-const mockGenerateContent = jest.fn();
+const mockGenerateContent = jest.fn(
+  (request: { model: string; contents: string }) =>
+    Promise.resolve({ text: request.contents }),
+);
 
 jest.mock('@google/genai', () => ({
   GoogleGenAI: jest.fn().mockImplementation(() => ({
@@ -74,6 +77,56 @@ describe('TranslateService', () => {
         targetLanguage: 'vi',
       }),
     ).resolves.toMatchObject({ translatedText: 'Xin chào' });
+  });
+
+  it('returns tone-marked pinyin for Chinese source text', async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: JSON.stringify({
+        translatedText: 'hello',
+        sourceLanguage: 'zh',
+        sourcePinyin: 'nǐ hǎo',
+      }),
+    });
+
+    await expect(
+      createService().translateText({ text: '你好', targetLanguage: 'en' }),
+    ).resolves.toMatchObject({ sourcePinyin: 'nǐ hǎo' });
+    expect(mockGenerateContent.mock.calls[0][0].contents).toContain(
+      'Hanyu Pinyin',
+    );
+  });
+
+  it('returns pinyin for a Chinese translation', async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: JSON.stringify({
+        translatedText: '你好',
+        sourceLanguage: 'en',
+        translatedPinyin: 'nǐ hǎo',
+      }),
+    });
+
+    await expect(
+      createService().translateText({ text: 'hello', targetLanguage: 'zh-CN' }),
+    ).resolves.toMatchObject({ translatedPinyin: 'nǐ hǎo' });
+  });
+
+  it('tries the fallback model when a Chinese result has no pinyin', async () => {
+    mockGenerateContent
+      .mockResolvedValueOnce({
+        text: JSON.stringify({ translatedText: 'hello', sourceLanguage: 'zh' }),
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          translatedText: 'hello',
+          sourceLanguage: 'zh',
+          sourcePinyin: 'nǐ hǎo',
+        }),
+      });
+
+    await expect(
+      createService().translateText({ text: '你好', targetLanguage: 'en' }),
+    ).resolves.toMatchObject({ sourcePinyin: 'nǐ hǎo' });
+    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
   });
 
   it('falls back to the secondary Gemini model', async () => {
