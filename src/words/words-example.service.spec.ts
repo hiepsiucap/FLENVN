@@ -97,6 +97,18 @@ describe('WordsExampleService', () => {
     );
   });
 
+  it('treats Chinese words as Chinese when generating definitions', async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: JSON.stringify(validOutput),
+    });
+
+    await createService().generateSuggestions('你好', 'en', 'zh');
+
+    expect(mockGenerateContent.mock.calls[0][0].contents).toContain(
+      'dictionary senses of the requested Chinese word',
+    );
+  });
+
   it('uses Gemini Flash fallback when Lite returns unaccented Vietnamese', async () => {
     const unaccentedOutput = {
       suggestions: [

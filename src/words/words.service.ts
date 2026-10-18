@@ -391,12 +391,18 @@ export class WordsService {
 
     const targetLanguage = dto.targetLanguage || 'vi';
     const imageLimit = dto.imageLimit || 3;
+    const chineseWord = /\p{Script=Han}/u.test(word);
 
     // Every upstream call depends only on the request and starts in parallel.
-    const pronunciationPromise = this.fetchPronunciation(word);
-    const openAiSuggestionsPromise =
-      this.wordsExampleService.generateSuggestions(word, targetLanguage);
-    const translationPromise = this.translateSafely(word, targetLanguage);
+    const pronunciationPromise = chineseWord
+      ? Promise.resolve(undefined)
+      : this.fetchPronunciation(word);
+    const openAiSuggestionsPromise = chineseWord
+      ? this.wordsExampleService.generateSuggestions(word, targetLanguage, 'zh')
+      : this.wordsExampleService.generateSuggestions(word, targetLanguage);
+    const translationPromise = chineseWord
+      ? this.translateChineseSafely(word, targetLanguage)
+      : this.translateSafely(word, targetLanguage);
     const audioUrlPromise = this.flashcardAudioService.createAudioUrl(
       userId,
       word,
@@ -406,14 +412,26 @@ export class WordsService {
       imageLimit,
     );
 
-    const [pronunciation, openAiSuggestions, translation, audioUrl, images] =
-      await Promise.all([
-        pronunciationPromise,
-        openAiSuggestionsPromise,
-        translationPromise,
-        audioUrlPromise,
-        imagesPromise,
-      ]);
+    const [
+      dictionaryPronunciation,
+      openAiSuggestions,
+      translated,
+      audioUrl,
+      images,
+    ] = await Promise.all([
+      pronunciationPromise,
+      openAiSuggestionsPromise,
+      translationPromise,
+      audioUrlPromise,
+      imagesPromise,
+    ]);
+    const translation =
+      typeof translated === 'string' ? translated : translated?.translation;
+    const pronunciation = chineseWord
+      ? typeof translated === 'string'
+        ? undefined
+        : translated?.pinyin
+      : dictionaryPronunciation;
 
     const definitions = openAiSuggestions.map((suggestion) => ({
       text: suggestion.definition,
@@ -444,13 +462,18 @@ export class WordsService {
       suggestions,
       audio: this.buildAudioSuggestion(audioUrl),
       images,
-      sources: this.buildSources(
-        pronunciation,
-        images,
-        translation,
-        audioUrl,
-        examples[0]?.source,
-      ),
+      sources: {
+        ...this.buildSources(
+          pronunciation,
+          images,
+          translation,
+          audioUrl,
+          examples[0]?.source,
+        ),
+        ...(chineseWord && pronunciation
+          ? { dictionary: 'google-vertex-ai' }
+          : {}),
+      },
       source: 'generated',
     };
   }
@@ -1081,6 +1104,30 @@ export class WordsService {
         }`,
       );
       return undefined;
+    }
+  }
+
+  private async translateChineseSafely(
+    text: string,
+    targetLanguage: string,
+  ): Promise<{ translation?: string; pinyin?: string }> {
+    try {
+      const result = await this.translateService.translateText({
+        text,
+        sourceLanguage: 'zh',
+        targetLanguage,
+      });
+      return {
+        translation: result.translatedText || undefined,
+        pinyin: result.sourcePinyin,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Chinese translation failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+      return {};
     }
   }
 
