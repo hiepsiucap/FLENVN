@@ -589,18 +589,35 @@ export class WordsService {
     }
 
     const targetLanguage = dto.targetLanguage || 'vi';
-    const [explanation, pronunciation, audioUrl, images] = await Promise.all([
-      this.wordsExampleService.explainInContext(
-        word,
-        occurrence.matchedForm,
-        text,
-        example,
-        targetLanguage,
-      ),
-      this.fetchPronunciation(word),
-      this.flashcardAudioService.createAudioUrl(userId, word),
-      this.flashcardImageService.findImageUrls(word, dto.imageLimit || 3),
-    ]);
+    const chineseWord = /\p{Script=Han}/u.test(word);
+    const [explanation, pronunciationResult, audioUrl, images] =
+      await Promise.all([
+        chineseWord
+          ? this.wordsExampleService.explainInContext(
+              word,
+              occurrence.matchedForm,
+              text,
+              example,
+              targetLanguage,
+              'zh',
+            )
+          : this.wordsExampleService.explainInContext(
+              word,
+              occurrence.matchedForm,
+              text,
+              example,
+              targetLanguage,
+            ),
+        chineseWord
+          ? this.translateChineseSafely(word, targetLanguage, text)
+          : this.fetchPronunciation(word),
+        this.flashcardAudioService.createAudioUrl(userId, word),
+        this.flashcardImageService.findImageUrls(word, dto.imageLimit || 3),
+      ]);
+    const pronunciation =
+      typeof pronunciationResult === 'string'
+        ? pronunciationResult
+        : pronunciationResult?.pinyin;
 
     if (!explanation) {
       throw new InternalServerErrorException(
@@ -1110,10 +1127,12 @@ export class WordsService {
   private async translateChineseSafely(
     text: string,
     targetLanguage: string,
+    context?: string,
   ): Promise<{ translation?: string; pinyin?: string }> {
     try {
       const result = await this.translateService.translateText({
         text,
+        ...(context ? { context } : {}),
         sourceLanguage: 'zh',
         targetLanguage,
       });
