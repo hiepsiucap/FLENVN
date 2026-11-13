@@ -1,0 +1,28 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - npm ci --no-audit --no-fund
+  pre_build:
+    commands:
+      - npm test -- --runInBand
+      - npm run build
+      - bash -n infra/aws-pipeline/deploy-container.sh
+      - python3 -B -m unittest discover -s infra/aws-pipeline -p "test_*.py" -v
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "${ECR_REPOSITORY_URI%%/*}"
+      - export IMAGE_URI="$ECR_REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION"
+  build:
+    commands:
+      - docker build -f infra/aws-pipeline/Dockerfile -t "$IMAGE_URI" .
+      - docker push "$IMAGE_URI"
+  post_build:
+    commands:
+      - test "$CODEBUILD_BUILD_SUCCEEDING" = 1
+      - python3 -c 'import json,os; json.dump({"image_uri":os.environ["IMAGE_URI"],"revision":os.environ["CODEBUILD_RESOLVED_SOURCE_VERSION"]},open("deployment.json","w"))'
+artifacts:
+  files:
+    - deployment.json
+    - infra/aws-pipeline/deploy.py
+    - infra/aws-pipeline/deploy-container.sh

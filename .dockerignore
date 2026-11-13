@@ -1,0 +1,11 @@
+.git
+.github
+.worktrees
+node_modules
+dist
+.env*
+coverage
+docs
+infra/cdk
+test
+*.log

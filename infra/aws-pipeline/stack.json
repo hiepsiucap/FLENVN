@@ -1,0 +1,766 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Small FLENVN CI/CD pipeline for the existing ARM EC2 API. Does not create or replace application servers or databases.",
+  "Parameters": {
+    "ConnectionArn": {
+      "Type": "String"
+    },
+    "GitHubRepository": {
+      "Type": "String",
+      "Default": "hiepsiucap/FLENVN"
+    },
+    "BranchName": {
+      "Type": "String",
+      "Default": "main"
+    },
+    "InstanceId": {
+      "Type": "AWS::EC2::Instance::Id"
+    },
+    "RepositoryName": {
+      "Type": "String",
+      "Default": "flenvn-prod-api"
+    },
+    "EnableGithubWebhook": {
+      "Type": "String",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Default": "false"
+    }
+  },
+  "Conditions": {
+    "WebhooksEnabled": {
+      "Fn::Equals": [
+        {
+          "Ref": "EnableGithubWebhook"
+        },
+        "true"
+      ]
+    }
+  },
+  "Resources": {
+    "Artifacts": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "ExpireArtifacts",
+              "Status": "Enabled",
+              "ExpirationInDays": 7,
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 7
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ArtifactsPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "Artifacts"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "s3:*",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "Artifacts",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Sub": "${Artifacts.Arn}/*"
+                }
+              ],
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "BuildLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/codebuild/flenvn-api-build",
+        "RetentionInDays": 7
+      }
+    },
+    "DeployLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/codebuild/flenvn-api-deploy",
+        "RetentionInDays": 7
+      }
+    },
+    "CheckLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/codebuild/flenvn-api-checks",
+        "RetentionInDays": 7
+      }
+    },
+    "BuildRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "codebuild.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "ReleaseAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/flenvn-*:*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:GetObjectVersion",
+                    "s3:PutObject"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "${Artifacts.Arn}/*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetBucketLocation",
+                    "s3:GetBucketAcl"
+                  ],
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Artifacts",
+                      "Arn"
+                    ]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ecr:GetAuthorizationToken"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ecr:BatchCheckLayerAvailability",
+                    "ecr:CompleteLayerUpload",
+                    "ecr:InitiateLayerUpload",
+                    "ecr:PutImage",
+                    "ecr:UploadLayerPart",
+                    "ecr:BatchGetImage",
+                    "ecr:GetDownloadUrlForLayer"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${RepositoryName}"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "DeployRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "codebuild.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "ReleaseAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/flenvn-*:*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:GetObjectVersion",
+                    "s3:PutObject"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "${Artifacts.Arn}/*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetBucketLocation",
+                    "s3:GetBucketAcl"
+                  ],
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Artifacts",
+                      "Arn"
+                    ]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssm:SendCommand"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${InstanceId}"
+                    },
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssm:GetCommandInvocation"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "CheckRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "codebuild.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "ReleaseAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/flenvn-*:*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "codeconnections:UseConnection",
+                    "codestar-connections:UseConnection"
+                  ],
+                  "Resource": {
+                    "Ref": "ConnectionArn"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "codeconnections:GetConnectionToken",
+                    "codeconnections:GetConnection"
+                  ],
+                  "Resource": {
+                    "Ref": "ConnectionArn"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "BuildProject": {
+      "Type": "AWS::CodeBuild::Project",
+      "Properties": {
+        "Name": "flenvn-api-build",
+        "ServiceRole": {
+          "Fn::GetAtt": [
+            "BuildRole",
+            "Arn"
+          ]
+        },
+        "Source": {
+          "Type": "CODEPIPELINE",
+          "BuildSpec": "infra/aws-pipeline/buildspec.yml"
+        },
+        "Artifacts": {
+          "Type": "CODEPIPELINE"
+        },
+        "TimeoutInMinutes": 15,
+        "QueuedTimeoutInMinutes": 15,
+        "ConcurrentBuildLimit": 1,
+        "Environment": {
+          "Type": "ARM_CONTAINER",
+          "ComputeType": "BUILD_GENERAL1_SMALL",
+          "Image": "aws/codebuild/amazonlinux-aarch64-standard:3.0",
+          "PrivilegedMode": true,
+          "EnvironmentVariables": [
+            {
+              "Name": "ECR_REPOSITORY_URI",
+              "Value": {
+                "Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${RepositoryName}"
+              }
+            },
+            {
+              "Name": "INSTANCE_ID",
+              "Value": {
+                "Ref": "InstanceId"
+              }
+            }
+          ]
+        },
+        "LogsConfig": {
+          "CloudWatchLogs": {
+            "Status": "ENABLED",
+            "GroupName": {
+              "Ref": "BuildLogs"
+            }
+          }
+        }
+      }
+    },
+    "DeployProject": {
+      "Type": "AWS::CodeBuild::Project",
+      "Properties": {
+        "Name": "flenvn-api-deploy",
+        "ServiceRole": {
+          "Fn::GetAtt": [
+            "DeployRole",
+            "Arn"
+          ]
+        },
+        "Source": {
+          "Type": "CODEPIPELINE",
+          "BuildSpec": "version: 0.2\nphases:\n  build:\n    commands:\n      - python3 infra/aws-pipeline/deploy.py\n"
+        },
+        "Artifacts": {
+          "Type": "CODEPIPELINE"
+        },
+        "TimeoutInMinutes": 15,
+        "QueuedTimeoutInMinutes": 15,
+        "ConcurrentBuildLimit": 1,
+        "Environment": {
+          "Type": "ARM_CONTAINER",
+          "ComputeType": "BUILD_GENERAL1_SMALL",
+          "Image": "aws/codebuild/amazonlinux-aarch64-standard:3.0",
+          "PrivilegedMode": false,
+          "EnvironmentVariables": [
+            {
+              "Name": "ECR_REPOSITORY_URI",
+              "Value": {
+                "Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${RepositoryName}"
+              }
+            },
+            {
+              "Name": "INSTANCE_ID",
+              "Value": {
+                "Ref": "InstanceId"
+              }
+            }
+          ]
+        },
+        "LogsConfig": {
+          "CloudWatchLogs": {
+            "Status": "ENABLED",
+            "GroupName": {
+              "Ref": "DeployLogs"
+            }
+          }
+        }
+      }
+    },
+    "CheckProject": {
+      "Type": "AWS::CodeBuild::Project",
+      "Properties": {
+        "Name": "flenvn-api-checks",
+        "ServiceRole": {
+          "Fn::GetAtt": [
+            "CheckRole",
+            "Arn"
+          ]
+        },
+        "Source": {
+          "Type": "GITHUB",
+          "Location": {
+            "Fn::Sub": "https://github.com/${GitHubRepository}.git"
+          },
+          "GitCloneDepth": 1,
+          "Auth": {
+            "Type": "CODECONNECTIONS",
+            "Resource": {
+              "Ref": "ConnectionArn"
+            }
+          },
+          "ReportBuildStatus": true,
+          "BuildStatusConfig": {
+            "Context": "AWS API checks"
+          },
+          "BuildSpec": "version: 0.2\nphases:\n  install:\n    runtime-versions:\n      nodejs: 22\n    commands:\n      - npm ci --no-audit --no-fund\n  build:\n    commands:\n      - npm test -- --runInBand\n      - npm run build\n      - bash -n infra/aws-pipeline/deploy-container.sh\n      - python3 -B -m unittest discover -s infra/aws-pipeline -p \"test_*.py\" -v\n"
+        },
+        "Artifacts": {
+          "Type": "NO_ARTIFACTS"
+        },
+        "TimeoutInMinutes": 15,
+        "QueuedTimeoutInMinutes": 15,
+        "ConcurrentBuildLimit": 1,
+        "Environment": {
+          "Type": "ARM_CONTAINER",
+          "ComputeType": "BUILD_GENERAL1_SMALL",
+          "Image": "aws/codebuild/amazonlinux-aarch64-standard:3.0",
+          "PrivilegedMode": false,
+          "EnvironmentVariables": [
+            {
+              "Name": "ECR_REPOSITORY_URI",
+              "Value": {
+                "Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${RepositoryName}"
+              }
+            },
+            {
+              "Name": "INSTANCE_ID",
+              "Value": {
+                "Ref": "InstanceId"
+              }
+            }
+          ]
+        },
+        "LogsConfig": {
+          "CloudWatchLogs": {
+            "Status": "ENABLED",
+            "GroupName": {
+              "Ref": "CheckLogs"
+            }
+          }
+        },
+        "SourceVersion": {
+          "Ref": "BranchName"
+        },
+        "Triggers": {
+          "Fn::If": [
+            "WebhooksEnabled",
+            {
+              "Webhook": true,
+              "FilterGroups": [
+                [
+                  {
+                    "Type": "EVENT",
+                    "Pattern": "PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED"
+                  },
+                  {
+                    "Type": "BASE_REF",
+                    "Pattern": "^refs/heads/main$"
+                  }
+                ]
+              ]
+            },
+            {
+              "Ref": "AWS::NoValue"
+            }
+          ]
+        }
+      }
+    },
+    "PipelineRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "codepipeline.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "ReleaseAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "codeconnections:UseConnection",
+                    "codestar-connections:UseConnection"
+                  ],
+                  "Resource": {
+                    "Ref": "ConnectionArn"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetBucketVersioning",
+                    "s3:GetBucketLocation",
+                    "s3:GetBucketAcl"
+                  ],
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "Artifacts",
+                      "Arn"
+                    ]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:GetObjectVersion",
+                    "s3:PutObject"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "${Artifacts.Arn}/*"
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "codebuild:StartBuild",
+                    "codebuild:BatchGetBuilds"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "BuildProject",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "DeployProject",
+                        "Arn"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "Pipeline": {
+      "Type": "AWS::CodePipeline::Pipeline",
+      "Properties": {
+        "Name": "flenvn-api",
+        "PipelineType": "V1",
+        "RestartExecutionOnUpdate": false,
+        "RoleArn": {
+          "Fn::GetAtt": [
+            "PipelineRole",
+            "Arn"
+          ]
+        },
+        "ArtifactStore": {
+          "Type": "S3",
+          "Location": {
+            "Ref": "Artifacts"
+          }
+        },
+        "Stages": [
+          {
+            "Name": "Source",
+            "Actions": [
+              {
+                "Name": "GitHub",
+                "ActionTypeId": {
+                  "Category": "Source",
+                  "Owner": "AWS",
+                  "Provider": "CodeStarSourceConnection",
+                  "Version": "1"
+                },
+                "Configuration": {
+                  "ConnectionArn": {
+                    "Ref": "ConnectionArn"
+                  },
+                  "FullRepositoryId": {
+                    "Ref": "GitHubRepository"
+                  },
+                  "BranchName": {
+                    "Ref": "BranchName"
+                  },
+                  "DetectChanges": "true",
+                  "OutputArtifactFormat": "CODE_ZIP"
+                },
+                "OutputArtifacts": [
+                  {
+                    "Name": "SourceCode"
+                  }
+                ],
+                "RunOrder": 1
+              }
+            ]
+          },
+          {
+            "Name": "BuildAndTest",
+            "Actions": [
+              {
+                "Name": "BuildAndTest",
+                "ActionTypeId": {
+                  "Category": "Build",
+                  "Owner": "AWS",
+                  "Provider": "CodeBuild",
+                  "Version": "1"
+                },
+                "Configuration": {
+                  "ProjectName": {
+                    "Ref": "BuildProject"
+                  }
+                },
+                "InputArtifacts": [
+                  {
+                    "Name": "SourceCode"
+                  }
+                ],
+                "OutputArtifacts": [
+                  {
+                    "Name": "Release"
+                  }
+                ],
+                "RunOrder": 1
+              }
+            ]
+          },
+          {
+            "Name": "Deploy",
+            "Actions": [
+              {
+                "Name": "DeployToEC2",
+                "ActionTypeId": {
+                  "Category": "Build",
+                  "Owner": "AWS",
+                  "Provider": "CodeBuild",
+                  "Version": "1"
+                },
+                "Configuration": {
+                  "ProjectName": {
+                    "Ref": "DeployProject"
+                  }
+                },
+                "InputArtifacts": [
+                  {
+                    "Name": "Release"
+                  }
+                ],
+                "RunOrder": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "PipelineName": {
+      "Value": {
+        "Ref": "Pipeline"
+      }
+    },
+    "ArtifactBucket": {
+      "Value": {
+        "Ref": "Artifacts"
+      }
+    },
+    "CheckProjectName": {
+      "Value": {
+        "Ref": "CheckProject"
+      }
+    },
+    "BuildProjectName": {
+      "Value": {
+        "Ref": "BuildProject"
+      }
+    },
+    "DeployProjectName": {
+      "Value": {
+        "Ref": "DeployProject"
+      }
+    }
+  }
+}
