@@ -58,6 +58,22 @@ export class AiChatController {
     return this.vocabularyCollector.save(user.id, dto);
   }
 
+  @Post(':conversationId/vocabulary/topic')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Discover related vocabulary from the conversation topic',
+  })
+  discoverConversationTopicVocabulary(
+    @CurrentUser() user: User,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+  ) {
+    return this.vocabularyCollector.discoverConversation(
+      user.id,
+      conversationId,
+      'topic',
+    );
+  }
+
   @Post(':conversationId/vocabulary/discover')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Discover vocabulary in an owned conversation' })
