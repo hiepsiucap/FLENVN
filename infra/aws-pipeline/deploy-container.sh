@@ -40,8 +40,8 @@ run_args=(--env-file /opt/flenvn/api.env)
 if [[ -f /opt/flenvn/api.extra.env ]]; then
   run_args+=(--env-file /opt/flenvn/api.extra.env)
 fi
-if [[ -d /opt/flenvn/google-credentials ]]; then
-  run_args+=(--mount type=bind,src=/opt/flenvn/google-credentials,dst=/run/google-credentials,readonly)
+if [[ -f /opt/flenvn/secrets/vertex-service-account.json ]]; then
+  run_args+=(--mount type=bind,src=/opt/flenvn/secrets/vertex-service-account.json,dst=/run/secrets/vertex-service-account.json,readonly)
 fi
 docker run -d --name flenvn-api --restart unless-stopped --network flenvn \
   "${run_args[@]}" "$image_uri" >/dev/null

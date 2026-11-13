@@ -32,7 +32,7 @@ elif args[0] == 'stop': state[args[-1]]['running'] = False
 elif args[0] == 'rename': state[args[2]] = state.pop(args[1])
 elif args[0] == 'rm': state.pop(args[-1], None)
 elif args[0] == 'start': state[args[-1]]['running'] = True
-elif args[0] == 'run': state['flenvn-api'] = {'image':args[-1], 'running':True}
+elif args[0] == 'run': state['flenvn-api'] = {'image':args[-1], 'running':True, 'runArgs':args}
 elif args[0] == 'exec': finish(1 if os.environ.get('FAIL_HEALTH') else 0)
 else: finish(2)
 finish()
@@ -40,12 +40,15 @@ finish()
 
 
 class DeploymentTests(unittest.TestCase):
-    def run_deploy(self, **flags):
+    def run_deploy(self, with_credentials=False, **flags):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             config = root / "config"
             config.mkdir()
             (config / "api.env").write_text("NODE_ENV=production\n")
+            if with_credentials:
+                (config / "secrets").mkdir()
+                (config / "secrets" / "vertex-service-account.json").write_text("{}")
             state = root / "docker-state.json"
             state.write_text(json.dumps({"flenvn-api": {"image": "previous", "running": True}}))
             for name, content in {
@@ -72,6 +75,13 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(state["flenvn-api"]["image"], IMAGE)
         self.assertTrue(state["flenvn-api"]["running"])
         self.assertFalse(state["flenvn-api-rollback"]["running"])
+
+    def test_preserves_the_existing_vertex_credential_mount(self):
+        result, state = self.run_deploy(with_credentials=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = state["flenvn-api"]["runArgs"]
+        self.assertIn("--mount", args)
+        self.assertTrue(any("dst=/run/secrets/vertex-service-account.json,readonly" in arg for arg in args))
 
     def test_failed_health_check_restores_previous_container(self):
         result, state = self.run_deploy(FAIL_HEALTH="true")
