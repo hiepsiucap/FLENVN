@@ -34,7 +34,11 @@ export class VocabularyCollectorService {
     private readonly images: FlashcardImageService,
   ) {}
 
-  async discoverConversation(userId: string, conversationId: string) {
+  async discoverConversation(
+    userId: string,
+    conversationId: string,
+    source: 'conversation' | 'topic' = 'conversation',
+  ) {
     const conversation = await this.conversations.findOne({
       where: { id: conversationId, userId },
     });
@@ -60,7 +64,7 @@ export class VocabularyCollectorService {
       .slice(-12000);
     const candidates = await this.model.discover(
       input,
-      'conversation',
+      source,
       conversation.targetLanguage,
     );
     return this.enrich(
@@ -68,14 +72,15 @@ export class VocabularyCollectorService {
       candidates.map((candidate) => ({
         ...candidate,
         example:
-          candidate.example &&
-          input
-            .toLocaleLowerCase()
-            .includes(candidate.example.toLocaleLowerCase())
+          source === 'topic' ||
+          (candidate.example &&
+            input
+              .toLocaleLowerCase()
+              .includes(candidate.example.toLocaleLowerCase()))
             ? candidate.example
             : undefined,
       })),
-      'conversation',
+      source,
     );
   }
 
