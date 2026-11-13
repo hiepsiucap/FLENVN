@@ -161,6 +161,40 @@ describe('VocabularyCollectorService', () => {
     );
   });
 
+  it('discovers related vocabulary from the chat topic without manual input', async () => {
+    model.discover.mockResolvedValue([
+      {
+        text: 'small talk',
+        type: VocabularyCandidateType.PHRASE,
+        translation: 'trò chuyện xã giao',
+        definition: 'Light informal conversation',
+        example: 'We made small talk at the party.',
+      },
+    ]);
+    const result = await service.discoverConversation(
+      'user-1',
+      'conversation-1',
+      'topic',
+    );
+    expect(model.discover).toHaveBeenCalledWith(
+      'user: I need to break the ice.',
+      'topic',
+      'vi',
+    );
+    expect(result.candidates[0]).toMatchObject({
+      source: 'topic',
+      example: 'We made small talk at the party.',
+    });
+  });
+
+  it('checks conversation ownership before discovering its topic', async () => {
+    conversationRepository.findOne.mockResolvedValue(null);
+    await expect(
+      service.discoverConversation('user-1', 'conversation-2', 'topic'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(model.discover).not.toHaveBeenCalled();
+  });
+
   it('verifies book ownership before saving any card', async () => {
     booksService.getBookById.mockResolvedValue(null);
     await expect(
