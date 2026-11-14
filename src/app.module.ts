@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { ListeningModule } from './listening/listening.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
@@ -68,6 +69,7 @@ import { SubmissionsModule } from './submissions/submissions.module';
     WordsModule,
     LabelsModule,
     AiChatModule,
+    ListeningModule,
     ShadowingModule,
     SubmissionsModule,
     AdminModule,

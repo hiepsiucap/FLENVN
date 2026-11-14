@@ -52,6 +52,7 @@ export class FlashcardAudioService {
   async createAudioUrl(
     userId: string,
     word: string,
+    voiceOverride?: VoiceId,
   ): Promise<string | undefined> {
     const text = word.trim();
     if (!text) return undefined;
@@ -68,7 +69,7 @@ export class FlashcardAudioService {
     }
 
     try {
-      const audio = await this.synthesize(text);
+      const audio = await this.synthesize(text, voiceOverride);
       const objectKey = `audio/flashcards/${userId}/${Date.now()}-${randomUUID()}.mp3`;
 
       await this.s3Client.send(
@@ -78,6 +79,7 @@ export class FlashcardAudioService {
           Body: audio,
           ContentType: 'audio/mpeg',
         }),
+        { abortSignal: AbortSignal.timeout(20_000) },
       );
 
       return `https://${bucket}.s3.${s3Region}.amazonaws.com/${objectKey}`;
@@ -91,7 +93,10 @@ export class FlashcardAudioService {
     }
   }
 
-  private async synthesize(text: string): Promise<Buffer> {
+  private async synthesize(
+    text: string,
+    voiceOverride?: VoiceId,
+  ): Promise<Buffer> {
     const voiceId = this.configService.get<string>(
       'services.aws.polly.voiceId',
       'Joanna',
@@ -105,9 +110,10 @@ export class FlashcardAudioService {
       new SynthesizeSpeechCommand({
         Text: text,
         OutputFormat: OutputFormat.MP3,
-        VoiceId: voiceId,
+        VoiceId: voiceOverride ?? voiceId,
         Engine: engine,
       }),
+      { abortSignal: AbortSignal.timeout(20_000) },
     );
 
     if (!response.AudioStream) {
@@ -121,7 +127,12 @@ export class FlashcardAudioService {
     if (stream instanceof Readable) {
       const chunks: Buffer[] = [];
       for await (const chunk of stream) {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        const value: unknown = chunk;
+        chunks.push(
+          typeof value === 'string'
+            ? Buffer.from(value)
+            : Buffer.from(value as Uint8Array),
+        );
       }
       return Buffer.concat(chunks);
     }
